@@ -1,28 +1,17 @@
 pub mod error;
 pub mod parser;
 
-#[derive(Debug)]
-pub enum PomlNode {
-  Tag(PomlTagNode),
-  Text(String),
-}
+pub use parser::PomlParser;
 
-#[derive(Debug)]
-pub struct PomlTagNode {
-  pub name: String,
-  pub attributes: Vec<(String, String)>,
-  pub children: Vec<PomlNode>,
+#[derive(Debug, PartialEq)]
+pub enum PomlNode<'a> {
+  Tag(PomlTagNode<'a>),
+  Text(&'a str),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum PomlElementKind {
-  Tag,
-  Text,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct PomlElement {
-  pub kind: PomlElementKind,
-  pub start_pos: usize,
-  pub end_pos: usize,
+pub struct PomlTagNode<'a> {
+  pub name: &'a str,
+  pub attributes: Vec<(&'a str, &'a str)>,
+  pub children: Vec<PomlNode<'a>>,
 }

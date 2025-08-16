@@ -1,5 +1,18 @@
 use crate::error::{Error, ErrorKind, Result};
-use crate::{PomlElement, PomlElementKind};
+use crate::{PomlNode, PomlTagNode};
+
+#[derive(Debug, PartialEq)]
+pub enum PomlElementKind {
+  Tag,
+  Text,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PomlElement {
+  pub kind: PomlElementKind,
+  pub start_pos: usize,
+  pub end_pos: usize,
+}
 
 #[derive(Debug)]
 pub struct PomlParser<'a> {
@@ -15,7 +28,275 @@ impl<'a> PomlParser<'a> {
     }
   }
 
-  pub fn next_element(&mut self) -> Result<Option<PomlElement>> {
+  pub fn parse_as_node(&mut self) -> Result<PomlTagNode<'a>> {
+    let elements = self.parse_as_elements()?;
+    let mut node_stack: Vec<PomlTagNode> = Vec::new();
+    let mut added_poml_root = false;
+
+    for element in elements.iter() {
+      match element.kind {
+        PomlElementKind::Text => {
+          let last_node = match node_stack.last_mut() {
+            Some(l) => l,
+            None => {
+              return Err(Error {
+                kind: ErrorKind::ParserError,
+                message: format!(
+                  "Text appears at position {} without a node",
+                  element.start_pos
+                ),
+                source: None,
+              });
+            }
+          };
+          let text = str::from_utf8(&self.buf[element.start_pos..element.end_pos]).unwrap();
+          let text_node = PomlNode::Text(text);
+          last_node.children.push(text_node);
+        }
+        PomlElementKind::Tag => {
+          if self.is_self_close_tag_element(element) {
+            let tag = self.create_tag_from_element(element)?;
+            if node_stack.len() == 0 {
+              if tag.name != "poml" {
+                node_stack.push(PomlTagNode {
+                  name: "poml",
+                  attributes: vec![],
+                  children: vec![],
+                });
+                added_poml_root = true;
+              } else {
+                return Err(Error {
+                  kind: ErrorKind::ParserError,
+                  message: format!("<poml> tag should not close itself."),
+                  source: None,
+                });
+              }
+            }
+            match node_stack.last_mut() {
+              Some(l) => {
+                l.children.push(PomlNode::Tag(tag));
+              }
+              None => {
+                unreachable!()
+              }
+            }
+          } else if self.is_close_tag_element(element) {
+            // check tag name
+            let node_to_close = match node_stack.pop() {
+              Some(l) => l,
+              None => {
+                return Err(Error {
+                  kind: ErrorKind::ParserError,
+                  message: format!(
+                    "Close tag appears without an open tag at position {}",
+                    element.start_pos
+                  ),
+                  source: None,
+                });
+              }
+            };
+            let (tag_name, _) = self.consume_key_str(element.start_pos + 2);
+            if tag_name != node_to_close.name {
+              return Err(Error {
+                kind: ErrorKind::ParserError,
+                message: format!(
+                  "Close tag of </{}> appears at position {}, but the open tag is <{}>",
+                  tag_name, element.start_pos, node_to_close.name
+                ),
+                source: None,
+              });
+            }
+            match node_stack.last_mut() {
+              Some(l) => {
+                l.children.push(PomlNode::Tag(node_to_close));
+              }
+              None => {
+                return Ok(node_to_close);
+              }
+            }
+          } else {
+            let tag = self.create_tag_from_element(element)?;
+            if node_stack.len() == 0 {
+              if tag.name != "poml" {
+                node_stack.push(PomlTagNode {
+                  name: "poml",
+                  attributes: vec![],
+                  children: vec![],
+                });
+                added_poml_root = true;
+              }
+            }
+            node_stack.push(tag);
+          }
+        }
+      }
+    }
+
+    if node_stack.len() == 1 && added_poml_root {
+      return Ok(node_stack.pop().unwrap());
+    } else {
+      Err(Error {
+        kind: ErrorKind::ParserError,
+        message: "Document has not finished at the end".to_owned(),
+        source: None,
+      })
+    }
+  }
+
+  fn create_tag_from_element(&self, element: &PomlElement) -> Result<PomlTagNode<'a>> {
+    let (tag_name, mut pos) = self.consume_key_str(element.start_pos + 1);
+    let mut attributes: Vec<(&'a str, &'a str)> = Vec::new();
+    loop {
+      pos = self.consume_space(pos);
+      if self.buf[pos].is_ascii_alphanumeric() {
+        let (attribute_name, next_pos) = self.consume_key_str(pos);
+        pos = self.consume_space(next_pos);
+        // Expect to see '='
+        if self.buf[pos] != b'=' {
+          return Err(Error {
+            kind: ErrorKind::ParserError,
+            message: format!(
+              "Expect '=' for attribute declaration at position {}, but not found.",
+              pos
+            ),
+            source: None,
+          });
+        }
+        pos = self.consume_space(pos + 1);
+        // Expect to see '"' as the start of a string literal
+        if self.buf[pos] != b'"' {
+          return Err(Error {
+            kind: ErrorKind::ParserError,
+            message: format!(
+              "Expect '\"' for attribute value at position {}, but not found.",
+              pos
+            ),
+            source: None,
+          });
+        }
+        let (attribute_value, next_pos) = self.consume_value_str_literal(pos)?;
+        attributes.push((attribute_name, attribute_value));
+        pos = next_pos
+      } else {
+        break;
+      }
+    }
+
+    Ok(PomlTagNode {
+      name: tag_name,
+      attributes,
+      children: Vec::new(),
+    })
+  }
+
+  fn is_self_close_tag_element(&self, element: &PomlElement) -> bool {
+    if element.kind == PomlElementKind::Tag {
+      self.buf[element.end_pos - 2] == b'/'
+    } else {
+      false
+    }
+  }
+
+  fn is_close_tag_element(&self, element: &PomlElement) -> bool {
+    if element.kind == PomlElementKind::Tag {
+      self.buf[element.start_pos + 1] == b'/'
+    } else {
+      false
+    }
+  }
+
+  /**
+   * Consume a key (tag name or attribute name) str.
+   * Return the key str reference and the next position.
+   */
+  fn consume_key_str(&self, pos: usize) -> (&'a str, usize) {
+    let buf = self.buf;
+    let mut next_pos = pos;
+    while next_pos < buf.len() {
+      let c = char::from(buf[next_pos]);
+      if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+        next_pos += 1
+      } else {
+        break;
+      }
+    }
+    (str::from_utf8(&buf[pos..next_pos]).unwrap(), next_pos)
+  }
+
+  /**
+   * Consume a value string literal.
+   *
+   * Return the value str reference and the next position after the ending quote.
+   */
+  fn consume_value_str_literal(&self, pos: usize) -> Result<(&'a str, usize)> {
+    let buf = self.buf;
+    if buf[pos] != b'"' {
+      return Err(Error {
+        kind: ErrorKind::ParserError,
+        message: format!(
+          "Expect to see '\"' as the start of a literal at position {}, but found {}",
+          pos, buf[pos]
+        ),
+        source: None,
+      });
+    }
+    let mut next_pos = pos + 1;
+    while next_pos < buf.len() {
+      match buf[next_pos] {
+        b'\\' => {
+          next_pos += 2;
+        }
+        b'"' => break,
+        _ => next_pos += 1,
+      }
+    }
+    if buf[next_pos] == b'\"' {
+      Ok((
+        str::from_utf8(&buf[pos..next_pos + 1]).unwrap(),
+        next_pos + 1,
+      ))
+    } else {
+      Err(Error {
+        kind: ErrorKind::ParserError,
+        message: format!(
+          "String literal has not reach an end at position {}",
+          next_pos
+        ),
+        source: None,
+      })
+    }
+  }
+
+  /**
+   * Consume ASCII spaces.
+   * Return the first non-space character position at or after the `pos`
+   */
+  fn consume_space(&self, pos: usize) -> usize {
+    let buf = self.buf;
+    let mut next_pos = pos;
+    while next_pos < buf.len() {
+      let c = char::from(buf[next_pos]);
+      if c.is_ascii_whitespace() {
+        next_pos += 1;
+      } else {
+        break;
+      }
+    }
+    next_pos
+  }
+
+  pub(crate) fn parse_as_elements(&mut self) -> Result<Vec<PomlElement>> {
+    let mut elements = Vec::new();
+    loop {
+      match self.next_element()? {
+        Some(e) => elements.push(e),
+        None => break,
+      }
+    }
+    Ok(elements)
+  }
+
+  fn next_element(&mut self) -> Result<Option<PomlElement>> {
     while self.pos < self.buf.len() {
       let c = char::from(self.buf[self.pos]);
       match c {
@@ -29,7 +310,7 @@ impl<'a> PomlParser<'a> {
             None => {
               return Err(Error {
                 kind: ErrorKind::ParserError,
-                message: Some(format!("Tag starting from {} is not complete", start_pos)),
+                message: format!("Tag starting from {} is not complete", start_pos),
                 source: None,
               });
             }
@@ -58,15 +339,26 @@ impl<'a> PomlParser<'a> {
 
   fn seek_gt_char(&self, pos: usize) -> Option<usize> {
     let mut pos = pos;
+    let mut in_string = false;
     while pos < self.buf.len() {
       match self.buf[pos] {
         b'>' => {
-          return Some(pos + 1);
+          if !in_string {
+            return Some(pos + 1);
+          }
         }
-        _ => {
-          pos = pos + 1;
+        b'"' => {
+          in_string = !in_string;
         }
+        b'\\' => {
+          if in_string {
+            // skip next character due to escape
+            pos += 1;
+          }
+        }
+        _ => {}
       }
+      pos += 1;
     }
     None
   }
@@ -90,7 +382,6 @@ impl<'a> PomlParser<'a> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::*;
   #[test]
   fn tokenize_simple_poml() {
     let doc = r#"
@@ -99,13 +390,7 @@ mod tests {
         </poml>
         "#;
     let mut parser = PomlParser::from_str(doc);
-    let mut elements = Vec::new();
-    loop {
-      match parser.next_element().unwrap() {
-        Some(e) => elements.push(e),
-        None => break,
-      }
-    }
+    let elements = parser.parse_as_elements().unwrap();
     assert_eq!(elements.len(), 5);
     assert_eq!(elements[0].kind, PomlElementKind::Tag);
     assert_eq!(
@@ -123,5 +408,64 @@ mod tests {
     assert_eq!(&doc[elements[3].start_pos..elements[3].end_pos], "</p>");
     assert_eq!(elements[4].kind, PomlElementKind::Tag);
     assert_eq!(&doc[elements[4].start_pos..elements[4].end_pos], "</poml>");
+  }
+
+  #[test]
+  fn tokenize_tag_with_escape_in_attributes() {
+    let doc = r#"<let name="foo" value=">bar\"" />"#;
+    let mut parser = PomlParser::from_str(doc);
+    let elements = parser.parse_as_elements().unwrap();
+    let element = &elements[0];
+    assert_eq!(element.kind, PomlElementKind::Tag);
+    assert_eq!(element.start_pos, 0);
+    assert_eq!(element.end_pos, doc.len());
+  }
+
+  #[test]
+  fn parse_as_node_simple_doc() {
+    let doc = r#"
+        <poml syntax="markdown">
+            <p> Hello, {{ name }}! </p>
+        </poml>
+        "#;
+    let mut parser = PomlParser::from_str(doc);
+    let node = parser.parse_as_node().unwrap();
+    assert_eq!(node.name, "poml");
+    assert_eq!(node.attributes.len(), 1);
+    assert_eq!(
+      node.attributes.first().unwrap(),
+      &("syntax", "\"markdown\"")
+    );
+    assert_eq!(node.children.len(), 1);
+    let PomlNode::Tag(p_node) = node.children.first().unwrap() else {
+      panic!()
+    };
+    assert_eq!(p_node.name, "p");
+    assert_eq!(
+      p_node.children.first().unwrap(),
+      &PomlNode::Text("Hello, {{ name }}! ")
+    )
+  }
+
+  #[test]
+  fn parse_unfinished_doc() {
+    let doc = r#"
+        <poml syntax="markdown">
+            <p> Hello, {{ name }}! </p>
+        "#;
+    let mut parser = PomlParser::from_str(doc);
+    let node = parser.parse_as_node();
+    assert!(node.is_err());
+  }
+
+  #[test]
+  fn parse_no_poml_root_doc() {
+    let doc = r#"
+            <p> Hello, {{ name }}! </p>
+            <p> Good bye, {{ name }}! </p>
+        "#;
+    let mut parser = PomlParser::from_str(doc);
+    let node = parser.parse_as_node().unwrap();
+    assert_eq!(node.children.len(), 2);
   }
 }

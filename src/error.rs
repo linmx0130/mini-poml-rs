@@ -16,7 +16,7 @@ impl std::fmt::Display for ErrorKind {
 #[derive(Debug)]
 pub struct Error {
   pub kind: ErrorKind,
-  pub message: Option<String>,
+  pub message: String,
   pub source: Option<Box<dyn StdError>>,
 }
 
@@ -30,21 +30,10 @@ impl std::fmt::Display for Error {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match &self.source {
       None => {
-        write!(
-          f,
-          "{}: {}",
-          self.kind,
-          self.message.clone().unwrap_or("None".to_string())
-        )
+        write!(f, "{}: {}", self.kind, self.message)
       }
       Some(source) => {
-        write!(
-          f,
-          "{}: {}\ncaused by {}",
-          self.kind,
-          self.message.clone().unwrap_or("None".to_string()),
-          source
-        )
+        write!(f, "{}: {}\ncaused by {}", self.kind, self.message, source)
       }
     }
   }
