@@ -18,13 +18,29 @@ pub struct PomlElement {
 pub struct PomlParser<'a> {
   pub buf: &'a [u8],
   pub pos: usize,
+  pub line_end_pos: Vec<usize>,
 }
 
 impl<'a> PomlParser<'a> {
   pub fn from_str(s: &'a str) -> PomlParser<'a> {
+    let buf = s.as_bytes();
+    let mut line_end_pos = Vec::new();
+
+    {
+      for pos in 0..buf.len() {
+        if buf[pos] == b'\n' {
+          line_end_pos.push(pos);
+        }
+      }
+      if buf[buf.len() - 1] != b'\n' {
+        line_end_pos.push(buf.len());
+      }
+    }
+
     PomlParser {
-      buf: s.as_bytes(),
+      buf: buf,
       pos: 0,
+      line_end_pos,
     }
   }
 
@@ -42,8 +58,8 @@ impl<'a> PomlParser<'a> {
               return Err(Error {
                 kind: ErrorKind::ParserError,
                 message: format!(
-                  "Text appears at position {} without a node",
-                  element.start_pos
+                  "Text appears at position {:?} without a node",
+                  self.get_line_and_col_from_pos(element.start_pos)
                 ),
                 source: None,
               });
@@ -88,8 +104,8 @@ impl<'a> PomlParser<'a> {
                 return Err(Error {
                   kind: ErrorKind::ParserError,
                   message: format!(
-                    "Close tag appears without an open tag at position {}",
-                    element.start_pos
+                    "Close tag appears without an open tag at position {:?}",
+                    self.get_line_and_col_from_pos(element.start_pos)
                   ),
                   source: None,
                 });
@@ -100,8 +116,10 @@ impl<'a> PomlParser<'a> {
               return Err(Error {
                 kind: ErrorKind::ParserError,
                 message: format!(
-                  "Close tag of </{}> appears at position {}, but the open tag is <{}>",
-                  tag_name, element.start_pos, node_to_close.name
+                  "Close tag of </{}> appears at position {:?}, but the open tag is <{}>",
+                  tag_name,
+                  self.get_line_and_col_from_pos(element.start_pos),
+                  node_to_close.name
                 ),
                 source: None,
               });
@@ -156,8 +174,8 @@ impl<'a> PomlParser<'a> {
           return Err(Error {
             kind: ErrorKind::ParserError,
             message: format!(
-              "Expect '=' for attribute declaration at position {}, but not found.",
-              pos
+              "Expect '=' for attribute declaration at position {:?}, but not found.",
+              self.get_line_and_col_from_pos(pos)
             ),
             source: None,
           });
@@ -168,8 +186,8 @@ impl<'a> PomlParser<'a> {
           return Err(Error {
             kind: ErrorKind::ParserError,
             message: format!(
-              "Expect '\"' for attribute value at position {}, but not found.",
-              pos
+              "Expect '\"' for attribute value at position {:?}, but not found.",
+              self.get_line_and_col_from_pos(pos)
             ),
             source: None,
           });
@@ -234,8 +252,9 @@ impl<'a> PomlParser<'a> {
       return Err(Error {
         kind: ErrorKind::ParserError,
         message: format!(
-          "Expect to see '\"' as the start of a literal at position {}, but found {}",
-          pos, buf[pos]
+          "Expect to see '\"' as the start of a literal at position {:?}, but found {}",
+          self.get_line_and_col_from_pos(pos),
+          buf[pos]
         ),
         source: None,
       });
@@ -259,8 +278,8 @@ impl<'a> PomlParser<'a> {
       Err(Error {
         kind: ErrorKind::ParserError,
         message: format!(
-          "String literal has not reach an end at position {}",
-          next_pos
+          "String literal has not reach an end at position {:?}",
+          self.get_line_and_col_from_pos(next_pos)
         ),
         source: None,
       })
@@ -377,6 +396,35 @@ impl<'a> PomlParser<'a> {
     }
     pos
   }
+
+  /**
+   * Get the line and col number from the postion value for error message.
+   *
+   * All numbers are indexed from 0.
+   */
+  fn get_line_and_col_from_pos(&self, pos: usize) -> (usize, usize) {
+    if pos >= self.buf.len() {
+      return (self.line_end_pos.len(), 0);
+    }
+    let mut l = 0;
+    let mut r = self.line_end_pos.len() - 1;
+    while l < r {
+      let mid = (l + r) / 2;
+      if self.line_end_pos[mid] < pos {
+        l = mid + 1;
+      } else {
+        r = mid;
+      }
+    }
+    let line_number = l;
+    let offset = if line_number != 0 {
+      self.line_end_pos[line_number - 1]
+    } else {
+      0
+    };
+    let col = pos - offset;
+    return (line_number, col);
+  }
 }
 
 #[cfg(test)]
@@ -456,6 +504,20 @@ mod tests {
     let mut parser = PomlParser::from_str(doc);
     let node = parser.parse_as_node();
     assert!(node.is_err());
+  }
+
+  #[test]
+  fn parse_close_tag_without_open() {
+    let doc = r#"
+        <poml syntax="markdown">
+            <h1> Hello, {{ name }}! </p>
+        </poml>
+        "#;
+    let mut parser = PomlParser::from_str(doc);
+    let node = parser.parse_as_node();
+    assert!(node.is_err());
+    let err = node.unwrap_err();
+    assert!(err.message.contains("position (2, 37)"))
   }
 
   #[test]
