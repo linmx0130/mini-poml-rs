@@ -8,7 +8,7 @@ use super::*;
 use crate::PomlParser;
 use serde_json::json;
 use std::collections::HashMap;
-use tag_renderer::{MarkdownTagRenderer, TestTagRenderer};
+use tag_renderer::{MarkdownTagRenderer, TagRenderer};
 
 /**
  * The tag render that renders nothing except dumping the
@@ -102,6 +102,46 @@ fn test_let_tag() {
 
   let output = renderer.render().unwrap();
   assert!(output.contains("Hello, world!"));
+}
+
+#[test]
+fn test_let_tag_with_type() {
+  let doc = r#"
+            <poml syntax="markdown">
+              <let name="count" value="3" type="integer" />
+              <p> Count: {{count}} </p>
+            </poml>
+        "#;
+  let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
+  let parser = PomlParser::from_str(doc);
+  let mut renderer = Renderer {
+    parser: parser,
+    context: context,
+    tag_renderer: TestTagRenderer {},
+  };
+
+  let output = renderer.render().unwrap();
+  assert!(output.contains("Count: 3"));
+}
+
+#[test]
+fn test_let_tag_with_type_with_invalid_value() {
+  let doc = r#"
+            <poml syntax="markdown">
+              <let name="count" value="three" type="integer" />
+              <p> Count: {{count}} </p>
+            </poml>
+        "#;
+  let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
+  let parser = PomlParser::from_str(doc);
+  let mut renderer = Renderer {
+    parser: parser,
+    context: context,
+    tag_renderer: TestTagRenderer {},
+  };
+
+  let output = renderer.render();
+  assert!(output.is_err());
 }
 
 #[test]

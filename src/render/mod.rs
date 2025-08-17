@@ -94,7 +94,42 @@ where
       });
     };
 
-    self.context.set_value(name, value);
+    let type_value = match attribute_values.iter().find(|v| v.0 == "type") {
+      Some((_, v)) => v,
+      None => "string",
+    };
+
+    if type_value != "string" {
+      match type_value {
+        "integer" => {
+          let int_val: i64 = match str::parse(value) {
+            Ok(v) => v,
+            Err(e) => {
+              return Err(Error {
+                kind: ErrorKind::RendererError,
+                message: format!("Failed to convert value to integer {}", value),
+                source: Some(Box::new(e)),
+              });
+            }
+          };
+          self.context.set_value(
+            name,
+            Value::Number(serde_json::Number::from_i128(int_val.into()).unwrap()),
+          );
+        }
+        _ => {
+          return Err(Error {
+            kind: ErrorKind::RendererError,
+            message: format!("Unknown type for varaible: {}", type_value),
+            source: None,
+          });
+        }
+      }
+    } else {
+      self
+        .context
+        .set_value(name, Value::String(value.to_string()));
+    }
     Ok("".to_owned())
   }
 
@@ -219,6 +254,15 @@ where
   fn render_value(&self, value: Value) -> String {
     match value {
       Value::String(s) => s,
+      Value::Number(ref num) => {
+        if num.is_i64() {
+          format!("{}", num.as_i64().unwrap())
+        } else if num.is_f64() {
+          format!("{}", num.as_f64().unwrap())
+        } else {
+          "NaN".to_owned()
+        }
+      }
       Value::Null => "null".to_owned(),
       _ => {
         format!("{:?}", value)
