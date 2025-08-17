@@ -147,3 +147,26 @@ fn test_intentional_blocks() {
   assert!(output.contains("# Task\n\n"));
   assert!(output.contains("## Stepwise Instructions\n\n"));
 }
+
+#[test]
+fn test_variable_scope() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  Start {{a}}
+  <let name="a" value="a" />
+  <p>
+  <let name="a" value="b" />
+  Mid {{a}}
+  </p>
+  End {{a}}
+</poml>
+"#;
+  let mut variables = HashMap::new();
+  variables.insert("a".to_owned(), json!("0"));
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, variables);
+  let output = renderer.render().unwrap();
+  assert!(output.contains("Start 0"));
+  assert!(output.contains("Mid b"));
+  assert!(output.contains("End a"));
+}

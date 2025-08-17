@@ -44,8 +44,13 @@ where
           attribute_values.push((key.to_string(), value));
         }
         let mut children_result = Vec::new();
-        for child in tag_node.children.iter() {
-          children_result.push(self.render_impl(child)?);
+
+        if tag_node.children.len() > 0 {
+          self.context.push_scope();
+          for child in tag_node.children.iter() {
+            children_result.push(self.render_impl(child)?);
+          }
+          self.context.pop_scope();
         }
 
         if tag_node.name == "let" {

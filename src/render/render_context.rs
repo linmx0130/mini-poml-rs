@@ -53,6 +53,16 @@ impl RenderContext {
     }
   }
 
+  pub fn push_scope(&mut self) {
+    self.scope_layers.push(Scope {
+      variables: Map::new(),
+    });
+  }
+
+  pub fn pop_scope(&mut self) {
+    self.scope_layers.pop();
+  }
+
   /**
    * Evaluate the value of an expression.
    */
