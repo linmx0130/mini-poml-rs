@@ -125,3 +125,25 @@ if __name__ == "__main__":
   assert!(output.contains("```python"));
   assert!(output.contains(code_piece))
 }
+
+#[test]
+fn test_intentional_blocks() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <role>You're a helpful assistant.</role>
+  <task>
+  Answer questions as much as possible. 
+  
+  <stepwise-instructions>
+    Work! Work! Work!
+  </stepwise-instructions>
+  </task>
+</poml>
+"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("# Role\n\nYou're a helpful assistant."));
+  assert!(output.contains("# Task\n\n"));
+  assert!(output.contains("## Stepwise Instructions\n\n"));
+}
