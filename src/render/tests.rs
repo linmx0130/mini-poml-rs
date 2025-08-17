@@ -183,3 +183,22 @@ fn test_escaping() {
   let output = renderer.render().unwrap();
   assert!(output.contains("Start < > ###"));
 }
+
+#[test]
+fn test_header_and_section() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <h>Header 1</h>
+  <section>
+    <h>Header 2</h>
+  </section>
+  <h>Header 3</h>
+</poml>
+"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("# Header 1"));
+  assert!(output.contains("## Header 2"));
+  assert!(output.contains("# Header 3"));
+}

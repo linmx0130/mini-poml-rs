@@ -66,6 +66,8 @@ impl TagRenderer for MarkdownTagRenderer {
       "b" => Ok(self.render_bold_tag(children_result)),
       "i" => Ok(self.render_italic_tag(children_result)),
       "code" => Ok(self.render_code_tag(tag, attribute_values, source_buf)),
+      "h" => Ok(self.render_header_tag(children_result)),
+      "section" => Ok(self.render_section_tag(children_result)),
       "role" => Ok(self.render_intention_block_tag("Role", children_result)),
       "task" => Ok(self.render_intention_block_tag("Task", children_result)),
       "output-format" => Ok(self.render_intention_block_tag("Output Format", children_result)),
@@ -159,6 +161,22 @@ impl MarkdownTagRenderer {
 
   fn render_intention_block_tag(&self, title: &str, children_result: Vec<String>) -> String {
     let mut answer = format!("# {}\n\n", title);
+    for child_text in children_result.iter() {
+      if child_text.starts_with("#") {
+        answer += &format!("#{}", child_text);
+      } else {
+        answer += child_text;
+      }
+    }
+    answer
+  }
+
+  fn render_header_tag(&self, children_result: Vec<String>) -> String {
+    format!("# {}\n\n", children_result.join(""))
+  }
+
+  fn render_section_tag(&self, children_result: Vec<String>) -> String {
+    let mut answer = String::new();
     for child_text in children_result.iter() {
       if child_text.starts_with("#") {
         answer += &format!("#{}", child_text);
