@@ -134,7 +134,29 @@ where
         let result_str = self.render_value(result);
         answer_buf.extend(result_str.as_bytes());
       } else if p[pos] == b'#' {
-        // escaping process
+        let escaping_mapping = [
+          ("#quot;", b'"'),
+          ("#apos;", b'\''),
+          ("#amp;", b'&'),
+          ("#lt;", b'<'),
+          ("#gt;", b'>'),
+          ("#hash;", b'#'),
+          ("#lbrace;", b'{'),
+          ("#rbrace;", b'}'),
+        ];
+        let mut escaped = false;
+        for (escaping_pattern, escaping_target) in escaping_mapping {
+          if utils::buf_match_str(p, pos, escaping_pattern) {
+            escaped = true;
+            answer_buf.push(escaping_target);
+            pos = pos + escaping_pattern.len();
+            break;
+          }
+        }
+        if !escaped {
+          answer_buf.push(p[pos]);
+          pos += 1;
+        }
       } else {
         answer_buf.push(p[pos]);
         pos += 1;

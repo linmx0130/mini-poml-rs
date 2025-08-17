@@ -170,3 +170,16 @@ fn test_variable_scope() {
   assert!(output.contains("Mid b"));
   assert!(output.contains("End a"));
 }
+
+#[test]
+fn test_escaping() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  Start #lt; #gt; ###
+</poml>
+"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("Start < > ###"));
+}
