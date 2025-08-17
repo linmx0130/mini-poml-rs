@@ -20,7 +20,6 @@ where
   pub fn render(&mut self, node: &PomlNode) -> Result<String> {
     match node {
       PomlNode::Tag(tag_node) => {
-        let name = tag_node.name;
         // TODO evaluate attribute values
         let attribute_values = Vec::new();
         let mut children_result = Vec::new();
@@ -30,10 +29,11 @@ where
         Ok(
           self
             .tag_renderer
-            .render_tag(name, &attribute_values, children_result),
+            .render_tag(tag_node, &attribute_values, children_result)?,
         )
       }
       PomlNode::Text(text) => self.render_text(text),
+      PomlNode::Whitespace => Ok(" ".to_owned()),
     }
   }
 
@@ -96,31 +96,4 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-  use super::*;
-  use crate::PomlParser;
-  use serde_json::json;
-  use std::collections::HashMap;
-  use tag_renderer::TestTagRenderer;
-
-  #[test]
-  fn test_render_content() {
-    let doc = r#"
-            <poml syntax="markdown">
-                <p> Hello, {{name}}! </p>
-            </poml>
-        "#;
-    let mut variables = HashMap::new();
-    variables.insert("name".to_owned(), json!("world"));
-    let context = render_context::RenderContext::from_iter(variables);
-    let mut renderer = Renderer {
-      context: context,
-      tag_renderer: TestTagRenderer {},
-    };
-
-    let mut parser = PomlParser::from_str(doc);
-    let node = parser.parse_as_node().unwrap();
-    let output = renderer.render(&PomlNode::Tag(node)).unwrap();
-    assert!(output.contains("Hello, world!"));
-  }
-}
+mod tests;

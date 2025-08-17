@@ -8,6 +8,16 @@ pub use parser::PomlParser;
 pub enum PomlNode<'a> {
   Tag(PomlTagNode<'a>),
   Text(&'a str),
+  Whitespace,
+}
+
+impl<'a> PomlNode<'a> {
+  pub fn is_tag(&self) -> bool {
+    match self {
+      PomlNode::Tag(_) => true,
+      _ => false,
+    }
+  }
 }
 
 #[derive(Debug, PartialEq)]

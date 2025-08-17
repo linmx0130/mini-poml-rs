@@ -5,6 +5,7 @@ use crate::{PomlNode, PomlTagNode};
 pub enum PomlElementKind {
   Tag,
   Text,
+  Whitespace,
 }
 
 #[derive(Debug, PartialEq)]
@@ -25,9 +26,14 @@ impl<'a> PomlParser<'a> {
   pub fn from_str(s: &'a str) -> PomlParser<'a> {
     let buf = s.as_bytes();
     let mut line_end_pos = Vec::new();
-
+    let mut first_not_space = None;
     {
       for pos in 0..buf.len() {
+        if first_not_space.is_none() {
+          if !buf[pos].is_ascii_whitespace() {
+            first_not_space = Some(pos);
+          }
+        }
         if buf[pos] == b'\n' {
           line_end_pos.push(pos);
         }
@@ -39,7 +45,7 @@ impl<'a> PomlParser<'a> {
 
     PomlParser {
       buf: buf,
-      pos: 0,
+      pos: first_not_space.unwrap_or(buf.len()),
       line_end_pos,
     }
   }
@@ -68,6 +74,23 @@ impl<'a> PomlParser<'a> {
           let text = str::from_utf8(&self.buf[element.start_pos..element.end_pos]).unwrap();
           let text_node = PomlNode::Text(text);
           last_node.children.push(text_node);
+        }
+        PomlElementKind::Whitespace => {
+          let last_node = match node_stack.last_mut() {
+            Some(l) => l,
+            None => {
+              return Err(Error {
+                kind: ErrorKind::ParserError,
+                message: format!(
+                  "Whitespace appears at position {:?} without a node",
+                  self.get_line_and_col_from_pos(element.start_pos)
+                ),
+                source: None,
+              });
+            }
+          };
+          let whitespace_node = PomlNode::Whitespace;
+          last_node.children.push(whitespace_node);
         }
         PomlElementKind::Tag => {
           if self.is_self_close_tag_element(element) {
@@ -320,7 +343,14 @@ impl<'a> PomlParser<'a> {
       let c = char::from(self.buf[self.pos]);
       match c {
         c if c.is_ascii_whitespace() => {
-          self.pos += 1;
+          let start_pos = self.pos;
+          let end_pos = self.consume_space(self.pos);
+          self.pos = end_pos;
+          return Ok(Some(PomlElement {
+            kind: PomlElementKind::Whitespace,
+            start_pos,
+            end_pos,
+          }));
         }
         '<' => {
           let start_pos = self.pos;
@@ -432,14 +462,10 @@ mod tests {
   use super::*;
   #[test]
   fn tokenize_simple_poml() {
-    let doc = r#"
-        <poml syntax="markdown">
-            <p> Hello, {{ name }}! </p>
-        </poml>
-        "#;
+    let doc = r#"<poml syntax="markdown"><p> Hello, {{ name }}! </p></poml>"#;
     let mut parser = PomlParser::from_str(doc);
     let elements = parser.parse_as_elements().unwrap();
-    assert_eq!(elements.len(), 5);
+    assert_eq!(elements.len(), 6);
     assert_eq!(elements[0].kind, PomlElementKind::Tag);
     assert_eq!(
       &doc[elements[0].start_pos..elements[0].end_pos],
@@ -447,15 +473,16 @@ mod tests {
     );
     assert_eq!(elements[1].kind, PomlElementKind::Tag);
     assert_eq!(&doc[elements[1].start_pos..elements[1].end_pos], "<p>");
-    assert_eq!(elements[2].kind, PomlElementKind::Text);
+    assert_eq!(elements[2].kind, PomlElementKind::Whitespace);
+    assert_eq!(elements[3].kind, PomlElementKind::Text);
     assert_eq!(
-      &doc[elements[2].start_pos..elements[2].end_pos],
+      &doc[elements[3].start_pos..elements[3].end_pos],
       "Hello, {{ name }}! "
     );
-    assert_eq!(elements[3].kind, PomlElementKind::Tag);
-    assert_eq!(&doc[elements[3].start_pos..elements[3].end_pos], "</p>");
     assert_eq!(elements[4].kind, PomlElementKind::Tag);
-    assert_eq!(&doc[elements[4].start_pos..elements[4].end_pos], "</poml>");
+    assert_eq!(&doc[elements[4].start_pos..elements[4].end_pos], "</p>");
+    assert_eq!(elements[4].kind, PomlElementKind::Tag);
+    assert_eq!(&doc[elements[5].start_pos..elements[5].end_pos], "</poml>");
   }
 
   #[test]
@@ -473,7 +500,7 @@ mod tests {
   fn parse_as_node_simple_doc() {
     let doc = r#"
         <poml syntax="markdown">
-            <p> Hello, {{ name }}! </p>
+            <p>Hello, {{ name }}!</p>
         </poml>
         "#;
     let mut parser = PomlParser::from_str(doc);
@@ -484,14 +511,15 @@ mod tests {
       node.attributes.first().unwrap(),
       &("syntax", "\"markdown\"")
     );
-    assert_eq!(node.children.len(), 1);
-    let PomlNode::Tag(p_node) = node.children.first().unwrap() else {
+    let tag_children: Vec<&PomlNode> = node.children.iter().filter(|v| v.is_tag()).collect();
+    assert_eq!(tag_children.len(), 1);
+    let PomlNode::Tag(p_node) = tag_children.first().unwrap() else {
       panic!()
     };
     assert_eq!(p_node.name, "p");
     assert_eq!(
       p_node.children.first().unwrap(),
-      &PomlNode::Text("Hello, {{ name }}! ")
+      &PomlNode::Text("Hello, {{ name }}!")
     )
   }
 
@@ -528,6 +556,6 @@ mod tests {
         "#;
     let mut parser = PomlParser::from_str(doc);
     let node = parser.parse_as_node().unwrap();
-    assert_eq!(node.children.len(), 2);
+    assert_eq!(node.children.iter().filter(|v| v.is_tag()).count(), 2);
   }
 }
