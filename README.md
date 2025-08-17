@@ -2,7 +2,7 @@ mini-poml-rs
 ===
 A partial implementation of [POML](https://microsoft.github.io/poml/) purely in Rust.
 
-This project is still in early development. Stay tuned!
+This project is still in early development. Use at your own risk! The API may change significantly in the near term.
 
 ## Features 
 ### Supported features
@@ -18,7 +18,7 @@ This project is still in early development. Stay tuned!
 * `<include>`
 
 ## Copyright
-Copyright (c) 2025, mini-poml-rs authors. All rights reserved. 
+Copyright (c) 2025, mini-poml-rs [authors](AUTHORS). All rights reserved. 
 
 Released under Mozilla Public License 2.0. See [LICENSE](LICENSE).
 

@@ -9,6 +9,7 @@ pub mod parser;
 pub mod render;
 
 pub use parser::PomlParser;
+use serde_json::Value;
 
 #[derive(Debug, PartialEq)]
 pub enum PomlNode<'a> {
@@ -33,4 +34,27 @@ pub struct PomlTagNode<'a> {
   pub children: Vec<PomlNode<'a>>,
   pub original_start_pos: usize,
   pub original_end_pos: usize,
+}
+
+pub type MarkdownPomlRenderer<'a> = render::Renderer<'a, render::tag_renderer::MarkdownTagRenderer>;
+
+impl<'a> MarkdownPomlRenderer<'a> {
+  pub fn create_from_doc_and_context(
+    doc: &'a str,
+    context: render::render_context::RenderContext,
+  ) -> Self {
+    let parser = PomlParser::from_str(&doc);
+    render::Renderer {
+      parser: parser,
+      context: context,
+      tag_renderer: render::tag_renderer::MarkdownTagRenderer {},
+    }
+  }
+  pub fn create_from_doc_and_variables(
+    doc: &'a str,
+    variables: impl IntoIterator<Item = (String, Value)>,
+  ) -> Self {
+    let context = render::render_context::RenderContext::from_iter(variables);
+    Self::create_from_doc_and_context(doc, context)
+  }
 }

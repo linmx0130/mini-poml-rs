@@ -100,6 +100,7 @@ fn test_if_attributes() {
 
 #[test]
 fn test_code_tag() {
+  use crate::MarkdownPomlRenderer;
   let code_piece = r#"
 import numpy as np
 
@@ -119,13 +120,7 @@ if __name__ == "__main__":
 "#,
     code_piece
   );
-  let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
-  let parser = PomlParser::from_str(&doc);
-  let mut renderer = Renderer {
-    parser: parser,
-    context: context,
-    tag_renderer: MarkdownTagRenderer {},
-  };
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
   let output = renderer.render().unwrap();
   assert!(output.contains("```python"));
   assert!(output.contains(code_piece))
