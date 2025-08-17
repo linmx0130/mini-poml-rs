@@ -55,6 +55,8 @@ where
 
         if tag_node.name == "let" {
           self.process_let_node(attribute_values)
+        } else if tag_node.name == "include" {
+          self.process_include_node(attribute_values)
         } else {
           Ok(self.tag_renderer.render_tag(
             tag_node,
@@ -94,6 +96,54 @@ where
 
     self.context.set_value(name, value);
     Ok("".to_owned())
+  }
+
+  fn process_include_node(&mut self, attribute_values: Vec<(String, String)>) -> Result<String> {
+    use std::io::Read;
+    let Some((_, src)) = attribute_values.iter().find(|v| v.0 == "src") else {
+      return Err(Error {
+        kind: ErrorKind::RendererError,
+        message: format!("`src` attribute not found on <include>."),
+        source: None,
+      });
+    };
+
+    let mut file_content_buf = String::new();
+    let content = if self.context.file_mapping.contains_key(src) {
+      self.context.file_mapping.get(src).unwrap()
+    } else {
+      let mut file = match std::fs::File::open(src) {
+        Ok(f) => f,
+        Err(e) => {
+          return Err(Error {
+            kind: ErrorKind::RendererError,
+            message: format!("Failed to open file included: {}", src),
+            source: Some(Box::new(e)),
+          });
+        }
+      };
+      match file.read_to_string(&mut file_content_buf) {
+        Ok(_) => {}
+        Err(e) => {
+          return Err(Error {
+            kind: ErrorKind::RendererError,
+            message: format!("Failed to read file included: {}", src),
+            source: Some(Box::new(e)),
+          });
+        }
+      };
+      &file_content_buf
+    };
+
+    let new_context = self.context.clone();
+    let new_tag_renderer = self.tag_renderer.clone();
+    let parser = PomlParser::from_str(&content);
+    let mut renderer = Renderer {
+      context: new_context,
+      tag_renderer: new_tag_renderer,
+      parser,
+    };
+    renderer.render()
   }
 
   /**

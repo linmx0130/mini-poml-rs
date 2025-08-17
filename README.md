@@ -9,13 +9,13 @@ This project is still in early development. Use at your own risk! The API may ch
 * Variables
 * `if` attribute
 * `<let>` for assigning values to variables 
+* `<include>` to include other files
 * Render as Markdown
 * `<code>` block
 
 ### Features in work
 * `for` attribute
 * Expression evaluation
-* `<include>`
 
 ## Copyright
 Copyright (c) 2025, mini-poml-rs [authors](AUTHORS). All rights reserved. 

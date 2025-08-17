@@ -6,11 +6,12 @@
 
 use crate::error::{Error, ErrorKind, Result};
 use serde_json::{Map, Value, json};
+use std::collections::HashMap;
 
 /**
  * Contains the variables in the current scope.
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Scope {
   variables: Map<String, Value>,
 }
@@ -18,9 +19,10 @@ pub struct Scope {
 /**
  * Context to render the POML tags into desired output format
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RenderContext {
   scope_layers: Vec<Scope>,
+  pub(crate) file_mapping: HashMap<String, String>,
 }
 
 impl RenderContext {
@@ -83,6 +85,7 @@ impl FromIterator<(String, Value)> for RenderContext {
 
     RenderContext {
       scope_layers: vec![base_scope],
+      file_mapping: HashMap::new(),
     }
   }
 }
@@ -98,6 +101,7 @@ impl<'a> FromIterator<(&'a String, &'a Value)> for RenderContext {
 
     RenderContext {
       scope_layers: vec![base_scope],
+      file_mapping: HashMap::new(),
     }
   }
 }
@@ -107,6 +111,7 @@ impl From<Map<String, Value>> for RenderContext {
     let base_scope = Scope { variables: value };
     RenderContext {
       scope_layers: vec![base_scope],
+      file_mapping: HashMap::new(),
     }
   }
 }

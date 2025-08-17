@@ -10,6 +10,35 @@ use serde_json::json;
 use std::collections::HashMap;
 use tag_renderer::{MarkdownTagRenderer, TestTagRenderer};
 
+/**
+ * The tag render that renders nothing except dumping the
+ * name, attributes and children it receives.
+ */
+#[derive(Clone)]
+struct TestTagRenderer {}
+
+impl TagRenderer for TestTagRenderer {
+  fn render_tag(
+    &self,
+    tag: &PomlTagNode,
+    attribute_values: &Vec<(String, String)>,
+    children_result: Vec<String>,
+    _source_buf: &[u8],
+  ) -> Result<String> {
+    let mut answer = String::new();
+    answer += &format!("Name: {}\n", tag.name);
+    for (key, value) in attribute_values {
+      answer += &format!("  - {}: {}\n", key, value);
+    }
+    answer += "=====\n";
+    for c in children_result {
+      answer += &format!("{}\n", c);
+    }
+    answer += "=====\n";
+    Ok(answer)
+  }
+}
+
 #[test]
 fn test_render_content() {
   let doc = r#"
@@ -201,4 +230,23 @@ fn test_header_and_section() {
   assert!(output.contains("# Header 1"));
   assert!(output.contains("## Header 2"));
   assert!(output.contains("# Header 3"));
+}
+
+#[test]
+fn test_include() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <p>File a</p>
+  <include src="a.poml"/>
+</poml>
+"#;
+  let a_doc = r#"<h>AAA</h>"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  renderer
+    .context
+    .file_mapping
+    .insert("a.poml".to_owned(), a_doc.to_owned());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("# AAA"));
 }

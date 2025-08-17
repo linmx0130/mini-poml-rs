@@ -8,7 +8,7 @@ use super::utils;
 use crate::error::{Error, ErrorKind, Result};
 use crate::{PomlNode, PomlParser, PomlTagNode};
 
-pub trait TagRenderer {
+pub trait TagRenderer: Clone {
   fn render_tag(
     &self,
     tag: &PomlTagNode,
@@ -19,37 +19,9 @@ pub trait TagRenderer {
 }
 
 /**
- * The tag render that renders nothing except dumping the
- * name, attributes and children it receives.
- */
-pub struct TestTagRenderer {}
-
-impl TagRenderer for TestTagRenderer {
-  fn render_tag(
-    &self,
-    tag: &PomlTagNode,
-    attribute_values: &Vec<(String, String)>,
-    children_result: Vec<String>,
-    _source_buf: &[u8],
-  ) -> Result<String> {
-    let mut answer = String::new();
-    answer += &format!("Name: {}\n", tag.name);
-    for (key, value) in attribute_values {
-      answer += &format!("  - {}: {}\n", key, value);
-    }
-    answer += "=====\n";
-    for c in children_result {
-      answer += &format!("{}\n", c);
-    }
-    answer += "=====\n";
-    Ok(answer)
-  }
-}
-
-/**
  * The default renderer to render markdown content.
  */
-
+#[derive(Clone)]
 pub struct MarkdownTagRenderer {}
 
 impl TagRenderer for MarkdownTagRenderer {
