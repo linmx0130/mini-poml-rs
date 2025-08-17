@@ -57,9 +57,7 @@ fn test_let_tag() {
               <p> Hello, {{name}}! </p>
             </poml>
         "#;
-  let mut variables = HashMap::new();
-  variables.insert("name".to_owned(), json!("world"));
-  let context = render_context::RenderContext::from_iter(variables);
+  let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
   let mut renderer = Renderer {
     context: context,
     tag_renderer: TestTagRenderer {},
@@ -69,4 +67,27 @@ fn test_let_tag() {
   let node = parser.parse_as_node().unwrap();
   let output = renderer.render(&PomlNode::Tag(node)).unwrap();
   assert!(output.contains("Hello, world!"));
+}
+
+#[test]
+fn test_if_attributes() {
+  let doc = r#"
+            <poml syntax="markdown">
+              <let name="name" value="world" />
+              <let name="isFrenchVisible" value="1" />
+              <p if="{{isVisible}}"> Hello, {{name}}! </p>
+              <p if="{{isFrenchVisible}}"> Bonjour, {{name}}! </p>
+            </poml>
+        "#;
+  let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
+  let mut renderer = Renderer {
+    context: context,
+    tag_renderer: TestTagRenderer {},
+  };
+
+  let mut parser = PomlParser::from_str(doc);
+  let node = parser.parse_as_node().unwrap();
+  let output = renderer.render(&PomlNode::Tag(node)).unwrap();
+  assert!(!output.contains("Hello, world!"));
+  assert!(output.contains("Bonjour, world!"));
 }

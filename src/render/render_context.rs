@@ -4,6 +4,7 @@ use serde_json::{Map, Value, json};
 /**
  * Contains the variables in the current scope.
  */
+#[derive(Debug)]
 pub struct Scope {
   variables: Map<String, Value>,
 }
@@ -11,6 +12,7 @@ pub struct Scope {
 /**
  * Context to render the POML tags into desired output format
  */
+#[derive(Debug)]
 pub struct RenderContext {
   scope_layers: Vec<Scope>,
 }
@@ -52,7 +54,7 @@ impl RenderContext {
     // TODO: evaluate expression
     match self.get_value(expression) {
       Some(v) => Ok(v.to_owned()),
-      None => Ok(json!(format!("Fake value for: {}", expression))),
+      None => Ok(Value::Null),
     }
   }
 }

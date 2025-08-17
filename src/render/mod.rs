@@ -22,7 +22,12 @@ where
       PomlNode::Tag(tag_node) => {
         let mut attribute_values: Vec<(String, String)> = Vec::new();
         for (key, value_raw) in tag_node.attributes.iter() {
-          let value = self.render_text(value_raw)?;
+          let value = self.render_text(&value_raw[1..value_raw.len() - 1])?;
+          if key == &"if" {
+            if self.is_false_value(&value) {
+              return Ok("".to_owned());
+            }
+          }
           attribute_values.push((key.to_string(), value));
         }
         let mut children_result = Vec::new();
@@ -47,7 +52,7 @@ where
 
   fn process_let_node(&mut self, attribute_values: Vec<(String, String)>) -> Result<String> {
     /* TODO
-     * 1. Support type attribute 
+     * 1. Support type attribute
      * 2. Support src attribute
      * 3. Support the case where name / value is missing
      * 4. Support using the content as value
@@ -123,9 +128,18 @@ where
   fn render_value(&self, value: Value) -> String {
     match value {
       Value::String(s) => s,
+      Value::Null => "null".to_owned(),
       _ => {
         format!("{:?}", value)
       }
+    }
+  }
+
+  fn is_false_value(&self, value: &str) -> bool {
+    let val = value.trim();
+    match val {
+      "0" | "false" | "" | "null" | "NaN" => true,
+      _ => false,
     }
   }
 }
