@@ -48,3 +48,25 @@ fn test_render_markdown() {
     "**This** is an *important* up*date*.\n\nGuess what?"
   );
 }
+
+#[test]
+fn test_let_tag() {
+  let doc = r#"
+            <poml syntax="markdown">
+              <let name="name" value="world" />
+              <p> Hello, {{name}}! </p>
+            </poml>
+        "#;
+  let mut variables = HashMap::new();
+  variables.insert("name".to_owned(), json!("world"));
+  let context = render_context::RenderContext::from_iter(variables);
+  let mut renderer = Renderer {
+    context: context,
+    tag_renderer: TestTagRenderer {},
+  };
+
+  let mut parser = PomlParser::from_str(doc);
+  let node = parser.parse_as_node().unwrap();
+  let output = renderer.render(&PomlNode::Tag(node)).unwrap();
+  assert!(output.contains("Hello, world!"));
+}

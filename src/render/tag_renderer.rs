@@ -55,6 +55,7 @@ impl TagRenderer for MarkdownTagRenderer {
       "p" => Ok(self.render_p_tag(children_result)),
       "b" => Ok(self.render_bold_tag(children_result)),
       "i" => Ok(self.render_italic_tag(children_result)),
+      "meta" => Ok("".to_owned()),
       _ => Err(Error {
         kind: ErrorKind::RendererError,
         message: format!("Unknown tag: <{}>", tag.name),

@@ -34,6 +34,18 @@ impl RenderContext {
   }
 
   /**
+   * Set a value on the current scope. If there is no scope in the context,
+   * nothing will happen.
+   */
+  pub fn set_value(&mut self, name: &str, value: &str) {
+    if let Some(current_scope) = self.scope_layers.last_mut() {
+      current_scope
+        .variables
+        .insert(name.to_string(), Value::String(value.to_string()));
+    }
+  }
+
+  /**
    * Evaluate the value of an expression.
    */
   pub fn evaluate(&self, expression: &str) -> Result<Value> {

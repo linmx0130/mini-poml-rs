@@ -20,21 +20,56 @@ where
   pub fn render(&mut self, node: &PomlNode) -> Result<String> {
     match node {
       PomlNode::Tag(tag_node) => {
-        // TODO evaluate attribute values
-        let attribute_values = Vec::new();
+        let mut attribute_values: Vec<(String, String)> = Vec::new();
+        for (key, value_raw) in tag_node.attributes.iter() {
+          let value = self.render_text(value_raw)?;
+          attribute_values.push((key.to_string(), value));
+        }
         let mut children_result = Vec::new();
         for child in tag_node.children.iter() {
           children_result.push(self.render(child)?);
         }
-        Ok(
-          self
-            .tag_renderer
-            .render_tag(tag_node, &attribute_values, children_result)?,
-        )
+
+        if tag_node.name == "let" {
+          self.process_let_node(attribute_values)
+        } else {
+          Ok(
+            self
+              .tag_renderer
+              .render_tag(tag_node, &attribute_values, children_result)?,
+          )
+        }
       }
       PomlNode::Text(text) => self.render_text(text),
       PomlNode::Whitespace => Ok(" ".to_owned()),
     }
+  }
+
+  fn process_let_node(&mut self, attribute_values: Vec<(String, String)>) -> Result<String> {
+    /* TODO
+     * 1. Support type attribute 
+     * 2. Support src attribute
+     * 3. Support the case where name / value is missing
+     * 4. Support using the content as value
+     */
+    let Some((_, name)) = attribute_values.iter().find(|v| v.0 == "name") else {
+      return Err(Error {
+        kind: ErrorKind::RendererError,
+        message: format!("`name` attribute not found on <let>."),
+        source: None,
+      });
+    };
+
+    let Some((_, value)) = attribute_values.iter().find(|v| v.0 == "value") else {
+      return Err(Error {
+        kind: ErrorKind::RendererError,
+        message: format!("`value` attribute not found on <let>."),
+        source: None,
+      });
+    };
+
+    self.context.set_value(name, value);
+    Ok("".to_owned())
   }
 
   /**
