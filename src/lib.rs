@@ -31,4 +31,6 @@ pub struct PomlTagNode<'a> {
   pub name: &'a str,
   pub attributes: Vec<(&'a str, &'a str)>,
   pub children: Vec<PomlNode<'a>>,
+  pub original_start_pos: usize,
+  pub original_end_pos: usize,
 }

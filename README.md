@@ -10,6 +10,7 @@ This project is still in early development. Stay tuned!
 * `if` attribute
 * `<let>` for assigning values to variables 
 * Render as Markdown
+* `<code>` block
 
 ### Features in work
 * `for` attribute

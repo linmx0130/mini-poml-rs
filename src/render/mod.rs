@@ -6,31 +6,38 @@
 
 pub mod render_context;
 pub mod tag_renderer;
+pub(crate) mod utils;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::{PomlNode, PomlTagNode};
+use crate::{PomlNode, PomlParser, PomlTagNode};
 use serde_json::Value;
 
-pub struct Renderer<T>
+pub struct Renderer<'a, T>
 where
   T: tag_renderer::TagRenderer,
 {
+  pub parser: PomlParser<'a>,
   pub context: render_context::RenderContext,
   pub tag_renderer: T,
 }
 
-impl<T> Renderer<T>
+impl<'a, T> Renderer<'a, T>
 where
   T: tag_renderer::TagRenderer,
 {
-  pub fn render(&mut self, node: &PomlNode) -> Result<String> {
+  pub fn render(&mut self) -> Result<String> {
+    let node = self.parser.parse_as_node()?;
+    self.render_impl(&PomlNode::Tag(node))
+  }
+
+  pub(crate) fn render_impl(&mut self, node: &PomlNode) -> Result<String> {
     match node {
       PomlNode::Tag(tag_node) => {
         let mut attribute_values: Vec<(String, String)> = Vec::new();
         for (key, value_raw) in tag_node.attributes.iter() {
           let value = self.render_text(&value_raw[1..value_raw.len() - 1])?;
           if key == &"if" {
-            if self.is_false_value(&value) {
+            if utils::is_false_value(&value) {
               return Ok("".to_owned());
             }
           }
@@ -38,17 +45,18 @@ where
         }
         let mut children_result = Vec::new();
         for child in tag_node.children.iter() {
-          children_result.push(self.render(child)?);
+          children_result.push(self.render_impl(child)?);
         }
 
         if tag_node.name == "let" {
           self.process_let_node(attribute_values)
         } else {
-          Ok(
-            self
-              .tag_renderer
-              .render_tag(tag_node, &attribute_values, children_result)?,
-          )
+          Ok(self.tag_renderer.render_tag(
+            tag_node,
+            &attribute_values,
+            children_result,
+            self.parser.buf,
+          )?)
         }
       }
       PomlNode::Text(text) => self.render_text(text),
@@ -138,14 +146,6 @@ where
       _ => {
         format!("{:?}", value)
       }
-    }
-  }
-
-  fn is_false_value(&self, value: &str) -> bool {
-    let val = value.trim();
-    match val {
-      "0" | "false" | "" | "null" | "NaN" => true,
-      _ => false,
     }
   }
 }

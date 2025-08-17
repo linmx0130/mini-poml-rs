@@ -107,6 +107,8 @@ impl<'a> PomlParser<'a> {
                   name: "poml",
                   attributes: vec![],
                   children: vec![],
+                  original_start_pos: element.start_pos,
+                  original_end_pos: element.end_pos,
                 });
                 added_poml_root = true;
               } else {
@@ -127,7 +129,7 @@ impl<'a> PomlParser<'a> {
             }
           } else if self.is_close_tag_element(element) {
             // check tag name
-            let node_to_close = match node_stack.pop() {
+            let mut node_to_close = match node_stack.pop() {
               Some(l) => l,
               None => {
                 return Err(Error {
@@ -153,6 +155,7 @@ impl<'a> PomlParser<'a> {
                 source: None,
               });
             }
+            node_to_close.original_end_pos = element.end_pos;
             match node_stack.last_mut() {
               Some(l) => {
                 l.children.push(PomlNode::Tag(node_to_close));
@@ -169,6 +172,8 @@ impl<'a> PomlParser<'a> {
                   name: "poml",
                   attributes: vec![],
                   children: vec![],
+                  original_start_pos: 0,
+                  original_end_pos: self.buf.len(),
                 });
                 added_poml_root = true;
               }
@@ -233,6 +238,8 @@ impl<'a> PomlParser<'a> {
       name: tag_name,
       attributes,
       children: Vec::new(),
+      original_start_pos: element.start_pos,
+      original_end_pos: element.end_pos,
     })
   }
 

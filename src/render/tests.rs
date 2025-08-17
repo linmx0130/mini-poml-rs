@@ -20,14 +20,14 @@ fn test_render_content() {
   let mut variables = HashMap::new();
   variables.insert("name".to_owned(), json!("world"));
   let context = render_context::RenderContext::from_iter(variables);
+  let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
+    parser: parser,
     context: context,
     tag_renderer: TestTagRenderer {},
   };
 
-  let mut parser = PomlParser::from_str(doc);
-  let node = parser.parse_as_node().unwrap();
-  let output = renderer.render(&PomlNode::Tag(node)).unwrap();
+  let output = renderer.render().unwrap();
   assert!(output.contains("Hello, world!"));
 }
 
@@ -41,14 +41,14 @@ fn test_render_markdown() {
         "#;
   let variables: HashMap<String, Value> = HashMap::new();
   let context = render_context::RenderContext::from_iter(variables);
+  let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
+    parser: parser,
     context: context,
     tag_renderer: MarkdownTagRenderer {},
   };
 
-  let mut parser = PomlParser::from_str(doc);
-  let node = parser.parse_as_node().unwrap();
-  let output = renderer.render(&PomlNode::Tag(node)).unwrap();
+  let output = renderer.render().unwrap();
   assert_eq!(
     output.trim(),
     "**This** is an *important* up*date*.\n\nGuess what?"
@@ -64,14 +64,14 @@ fn test_let_tag() {
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
+  let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
+    parser: parser,
     context: context,
     tag_renderer: TestTagRenderer {},
   };
 
-  let mut parser = PomlParser::from_str(doc);
-  let node = parser.parse_as_node().unwrap();
-  let output = renderer.render(&PomlNode::Tag(node)).unwrap();
+  let output = renderer.render().unwrap();
   assert!(output.contains("Hello, world!"));
 }
 
@@ -86,14 +86,47 @@ fn test_if_attributes() {
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
+  let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
+    parser: parser,
     context: context,
     tag_renderer: TestTagRenderer {},
   };
 
-  let mut parser = PomlParser::from_str(doc);
-  let node = parser.parse_as_node().unwrap();
-  let output = renderer.render(&PomlNode::Tag(node)).unwrap();
+  let output = renderer.render().unwrap();
   assert!(!output.contains("Hello, world!"));
   assert!(output.contains("Bonjour, world!"));
+}
+
+#[test]
+fn test_code_tag() {
+  let code_piece = r#"
+import numpy as np
+
+if __name__ == "__main__":
+    x = np.random((3, 4))
+    print(f"{x}")
+"#
+  .trim();
+  let doc = format!(
+    r#"
+<poml syntax="markdown">
+  <let name="name" value="world" />
+<code lang="python">
+{}
+</code>
+</poml>
+"#,
+    code_piece
+  );
+  let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
+  let parser = PomlParser::from_str(&doc);
+  let mut renderer = Renderer {
+    parser: parser,
+    context: context,
+    tag_renderer: MarkdownTagRenderer {},
+  };
+  let output = renderer.render().unwrap();
+  assert!(output.contains("```python"));
+  assert!(output.contains(code_piece))
 }
