@@ -3,12 +3,16 @@ use std::error::Error as StdError;
 #[derive(Debug)]
 pub enum ErrorKind {
   ParserError,
+  EvaluatorError,
+  RendererError,
 }
 
 impl std::fmt::Display for ErrorKind {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
       ErrorKind::ParserError => write!(f, "ParserError"),
+      ErrorKind::EvaluatorError => write!(f, "EvaluatorError"),
+      ErrorKind::RendererError => write!(f, "RendererError"),
     }
   }
 }
