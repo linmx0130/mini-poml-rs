@@ -44,6 +44,10 @@ fn recognize_next_value(
         let value = evaluate_number(numc)?;
         return Ok((value, pos + 1));
       }
+      ExpressionToken::String(strc) => {
+        let str_val = evaluate_string(strc)?;
+        return Ok((str_val, pos + 1));
+      }
       _ => {
         return Err(Error {
           kind: ErrorKind::EvaluatorError,
@@ -155,6 +159,20 @@ fn evaluate_number(numc: &[u8]) -> Result<Value> {
       serde_json::Number::from_f64(val.into()).unwrap(),
     ))
   }
+}
+
+fn evaluate_string(strc: &[u8]) -> Result<Value> {
+  let str_val = match str::from_utf8(&strc[1..strc.len() - 1]) {
+    Ok(s) => s,
+    Err(e) => {
+      return Err(Error {
+        kind: ErrorKind::EvaluatorError,
+        message: format!("Failed to decode string literal in expression."),
+        source: Some(Box::new(e)),
+      });
+    }
+  };
+  Ok(Value::String(str_val.to_string()))
 }
 
 fn match_u8_str(src: &[u8], pat: &str) -> bool {
