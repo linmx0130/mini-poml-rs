@@ -108,8 +108,10 @@ fn test_let_tag() {
 fn test_let_tag_with_type() {
   let doc = r#"
             <poml syntax="markdown">
-              <let name="count" value="3" type="integer" />
+              <let name="count" value="3" type="number" />
               <p> Count: {{count}} </p>
+              <let name="isVisible" value="0" type="boolean" />
+              <p if="{{ isVisible }}"> Not visible </p>
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
@@ -122,6 +124,7 @@ fn test_let_tag_with_type() {
 
   let output = renderer.render().unwrap();
   assert!(output.contains("Count: 3"));
+  assert!(!output.contains("Not visible"));
 }
 
 #[test]

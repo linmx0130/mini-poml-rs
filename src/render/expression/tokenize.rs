@@ -30,7 +30,7 @@ pub enum ExpressionToken<'a> {
   // Colon
   Colon,
   // Quote
-  Quote,
+  Quote(u8),
 }
 
 pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>> {
@@ -122,8 +122,8 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         answer.push(ExpressionToken::Colon);
         pos += 1;
       }
-      '"' => {
-        answer.push(ExpressionToken::Quote);
+      '"' | '\'' => {
+        answer.push(ExpressionToken::Quote(buf[pos]));
         pos += 1;
       }
       c if c.is_whitespace() => {

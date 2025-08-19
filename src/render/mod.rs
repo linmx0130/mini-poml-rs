@@ -118,6 +118,43 @@ where
             Value::Number(serde_json::Number::from_i128(int_val.into()).unwrap()),
           );
         }
+        "number" => {
+          if value.contains('.') {
+            let fval: f64 = match str::parse(value) {
+              Ok(v) => v,
+              Err(e) => {
+                return Err(Error {
+                  kind: ErrorKind::RendererError,
+                  message: format!("Failed to convert value to number {}", value),
+                  source: Some(Box::new(e)),
+                });
+              }
+            };
+            self.context.set_value(
+              name,
+              Value::Number(serde_json::Number::from_f64(fval.into()).unwrap()),
+            );
+          } else {
+            let int_val: i64 = match str::parse(value) {
+              Ok(v) => v,
+              Err(e) => {
+                return Err(Error {
+                  kind: ErrorKind::RendererError,
+                  message: format!("Failed to convert value to number {}", value),
+                  source: Some(Box::new(e)),
+                });
+              }
+            };
+            self.context.set_value(
+              name,
+              Value::Number(serde_json::Number::from_i128(int_val.into()).unwrap()),
+            );
+          }
+        }
+        "boolean" => {
+          let bool_val = !utils::is_false_value(&value);
+          self.context.set_value(name, Value::Bool(bool_val));
+        }
         _ => {
           return Err(Error {
             kind: ErrorKind::RendererError,
@@ -263,6 +300,9 @@ where
         } else {
           "NaN".to_owned()
         }
+      }
+      Value::Bool(b) => {
+        format!("{}", b)
       }
       Value::Null => "null".to_owned(),
       _ => {
