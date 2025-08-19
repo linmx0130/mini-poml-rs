@@ -13,18 +13,84 @@ pub fn evaluate_expression_tokens(
   tokens: &[ExpressionToken],
   context: &RenderContext,
 ) -> Result<Value> {
-  let mut pos = 0;
-  while pos < tokens.len() {
-    let (value, next_pos) = recognize_next_value(tokens, pos, context)?;
-    pos = next_pos;
-    // TODO: process expression that is not only a single value
-    return Ok(value);
+  let (value, next_pos) = evaluate_expression_value(tokens, 0, context)?;
+
+  return if next_pos == tokens.len() {
+    Ok(value)
+  } else {
+    Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: format!("Not implemented"),
+      source: None,
+    })
+  };
+}
+
+fn evaluate_expression_value(
+  tokens: &[ExpressionToken],
+  start_pos: usize,
+  context: &RenderContext,
+) -> Result<(Value, usize)> {
+  let mut pos = start_pos;
+  let mut ret_value = Value::Null;
+  match tokens[start_pos] {
+    ExpressionToken::Ref(_) | ExpressionToken::Number(_) | ExpressionToken::String(_) => {
+      let (value, next_pos) = recognize_next_value(tokens, start_pos, context)?;
+      ret_value = value;
+      pos = next_pos;
+    }
+    ExpressionToken::LeftBracket => {
+      // array
+      pos += 1;
+      let mut array_value: Vec<Value> = Vec::new();
+      while pos < tokens.len() {
+        if tokens[pos] == ExpressionToken::RightBracket {
+          pos = pos + 1;
+          ret_value = Value::Array(array_value);
+          break;
+        } else {
+          // read next sub-expression
+          let (item_value, next_pos) = evaluate_expression_value(tokens, pos, context)?;
+          array_value.push(item_value);
+          match tokens[next_pos] {
+            ExpressionToken::Comma => {
+              pos = next_pos + 1;
+            }
+            ExpressionToken::RightBracket => {
+              pos = next_pos;
+              continue;
+            }
+            _ => {
+              return Err(Error {
+                kind: ErrorKind::EvaluatorError,
+                message: format!(
+                  "Expect comma ',' or right bracket ']' characters, but found {:?}",
+                  tokens[pos]
+                ),
+                source: None,
+              });
+            }
+          };
+        }
+      }
+      if ret_value == Value::Null {
+        return Err(Error {
+          kind: ErrorKind::EvaluatorError,
+          message: format!("Array value has not finished in the expression"),
+          source: None,
+        });
+      }
+    }
+    _ => {
+      return Err(Error {
+        kind: ErrorKind::EvaluatorError,
+        message: format!("Not implemented"),
+        source: None,
+      });
+    }
   }
-  return Err(Error {
-    kind: ErrorKind::EvaluatorError,
-    message: format!("Not implemented"),
-    source: None,
-  });
+  // TODO: recognize and process operators after the first value
+  Ok((ret_value, pos))
 }
 
 fn recognize_next_value(
@@ -51,7 +117,7 @@ fn recognize_next_value(
       _ => {
         return Err(Error {
           kind: ErrorKind::EvaluatorError,
-          message: format!("Not implemented"),
+          message: format!("Expect a value token, but not found"),
           source: None,
         });
       }
@@ -221,5 +287,35 @@ mod tests {
   fn test_evaluate_numbers() {
     assert_eq!(evaluate_number("123".as_bytes()).unwrap(), json!(123));
     assert_eq!(evaluate_number("0.55".as_bytes()).unwrap(), json!(0.55));
+  }
+
+  #[test]
+  fn test_evaluate_array() {
+    let Value::Object(variables) = json!({}) else {
+      panic!();
+    };
+    let context = RenderContext::from(variables);
+    assert_eq!(
+      evaluate_expression_tokens(
+        &[
+          ExpressionToken::LeftBracket,
+          ExpressionToken::Number(b"1"),
+          ExpressionToken::Comma,
+          ExpressionToken::String(b"\'2\'"),
+          ExpressionToken::Comma,
+          ExpressionToken::LeftBracket,
+          ExpressionToken::Ref(b"true"),
+          ExpressionToken::Comma,
+          ExpressionToken::Ref(b"false"),
+          ExpressionToken::Comma,
+          ExpressionToken::RightBracket,
+          ExpressionToken::Comma,
+          ExpressionToken::RightBracket,
+        ],
+        &context
+      )
+      .unwrap(),
+      json!([1, "2", [true, false]])
+    );
   }
 }
