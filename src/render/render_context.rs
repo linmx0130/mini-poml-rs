@@ -4,8 +4,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use crate::error::{Error, ErrorKind, Result};
-use serde_json::{Map, Value, json};
+use crate::error::Result;
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 
 /**
@@ -67,11 +67,7 @@ impl RenderContext {
    * Evaluate the value of an expression.
    */
   pub fn evaluate(&self, expression: &str) -> Result<Value> {
-    // TODO: evaluate expression
-    match self.get_value(expression) {
-      Some(v) => Ok(v.to_owned()),
-      None => Ok(Value::Null),
-    }
+    super::expression::evaluate_expression(expression, self)
   }
 }
 

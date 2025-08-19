@@ -5,7 +5,7 @@
  */
 
 use super::*;
-use crate::PomlParser;
+use crate::{PomlParser, PomlTagNode};
 use serde_json::json;
 use std::collections::HashMap;
 use tag_renderer::{MarkdownTagRenderer, TagRenderer};

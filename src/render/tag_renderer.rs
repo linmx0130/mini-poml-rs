@@ -6,7 +6,7 @@
 
 use super::utils;
 use crate::error::{Error, ErrorKind, Result};
-use crate::{PomlNode, PomlParser, PomlTagNode};
+use crate::{PomlNode, PomlTagNode};
 
 pub trait TagRenderer: Clone {
   fn render_tag(

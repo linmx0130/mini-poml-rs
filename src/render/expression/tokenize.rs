@@ -25,6 +25,12 @@ pub enum ExpressionToken<'a> {
   LeftCurly,
   // Right curly bracket
   RightCurly,
+  // Comma
+  Comma,
+  // Colon
+  Colon,
+  // Quote
+  Quote,
 }
 
 pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>> {
@@ -47,13 +53,25 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         answer.push(ExpressionToken::Ref(&buf[pos..ref_end_pos]));
         pos = ref_end_pos;
       }
-      c if c.is_numeric() => {
+      c if c.is_numeric() || c == '.' => {
+        let mut found_dot = false;
         // number
-        let mut num_end_pos = pos + 1;
+        let mut num_end_pos = pos;
         while num_end_pos < buf.len() {
           let nc = u8_as_char(buf[num_end_pos])?;
-          if nc.is_numeric() || nc == '.' {
+          if nc.is_numeric() {
             num_end_pos += 1;
+          } else if nc == '.' {
+            if !found_dot {
+              found_dot = true;
+              num_end_pos += 1;
+            } else {
+              return Err(Error {
+                kind: ErrorKind::EvaluatorError,
+                message: format!("Multiple dots found in a number literal."),
+                source: None,
+              });
+            }
           } else {
             break;
           }
@@ -96,6 +114,18 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         answer.push(ExpressionToken::RightCurly);
         pos += 1;
       }
+      ',' => {
+        answer.push(ExpressionToken::Comma);
+        pos += 1;
+      }
+      ':' => {
+        answer.push(ExpressionToken::Colon);
+        pos += 1;
+      }
+      '"' => {
+        answer.push(ExpressionToken::Quote);
+        pos += 1;
+      }
       c if c.is_whitespace() => {
         pos += 1;
       }
@@ -127,7 +157,7 @@ mod tests {
   use super::*;
   #[test]
   fn test_tokenize() {
-    let expression = "(name.age + 1.5) * 2";
+    let expression = "(name.age + 1.5) * .2";
     let tokens = tokenize_expression(expression.as_bytes()).unwrap();
     assert_eq!(tokens[0], ExpressionToken::LeftParenthesis);
     assert_eq!(tokens[1], ExpressionToken::Ref("name.age".as_bytes()));
@@ -135,6 +165,6 @@ mod tests {
     assert_eq!(tokens[3], ExpressionToken::Number("1.5".as_bytes()));
     assert_eq!(tokens[4], ExpressionToken::RightParenthesis);
     assert_eq!(tokens[5], ExpressionToken::ArithOp("*".as_bytes()));
-    assert_eq!(tokens[6], ExpressionToken::Number("2".as_bytes()));
+    assert_eq!(tokens[6], ExpressionToken::Number(".2".as_bytes()));
   }
 }

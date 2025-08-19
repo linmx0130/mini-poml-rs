@@ -10,7 +10,7 @@ pub mod tag_renderer;
 pub(crate) mod utils;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::{PomlNode, PomlParser, PomlTagNode};
+use crate::{PomlNode, PomlParser};
 use serde_json::Value;
 
 pub struct Renderer<'a, T>
