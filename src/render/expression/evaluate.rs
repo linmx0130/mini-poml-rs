@@ -5,6 +5,7 @@
  */
 
 use super::tokenize::ExpressionToken;
+use super::utils::is_false_json_value;
 use crate::error::{Error, ErrorKind, Result};
 use crate::render::render_context::RenderContext;
 use serde_json::Value;
@@ -34,6 +35,18 @@ fn evaluate_expression_value(
   let mut pos = start_pos;
   let mut ret_value = Value::Null;
   match tokens[start_pos] {
+    ExpressionToken::Exclamation => {
+      if start_pos + 1 >= tokens.len() {
+        return Err(Error {
+          kind: ErrorKind::EvaluatorError,
+          message: format!("No value after NOT operator"),
+          source: None,
+        });
+      }
+      let (value, next_pos) = recognize_next_value(tokens, start_pos + 1, context)?;
+      ret_value = Value::Bool(is_false_json_value(&value));
+      pos = next_pos;
+    }
     ExpressionToken::Ref(_) | ExpressionToken::Number(_) | ExpressionToken::String(_) => {
       let (value, next_pos) = recognize_next_value(tokens, start_pos, context)?;
       ret_value = value;
@@ -316,6 +329,22 @@ mod tests {
       )
       .unwrap(),
       json!([1, "2", [true, false]])
+    );
+  }
+
+  #[test]
+  fn test_evaluate_not() {
+    let Value::Object(variables) = json!({"flag": false}) else {
+      panic!();
+    };
+    let context = RenderContext::from(variables);
+    assert_eq!(
+      evaluate_expression_tokens(
+        &[ExpressionToken::Exclamation, ExpressionToken::Ref(b"flag"),],
+        &context
+      )
+      .unwrap(),
+      json!(true)
     );
   }
 }

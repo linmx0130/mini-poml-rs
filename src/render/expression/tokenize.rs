@@ -31,6 +31,8 @@ pub enum ExpressionToken<'a> {
   Comma,
   // Colon
   Colon,
+  // Exclamation mark !
+  Exclamation,
 }
 
 pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>> {
@@ -95,6 +97,10 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
       }
       ':' => {
         answer.push(ExpressionToken::Colon);
+        pos += 1;
+      }
+      '!' => {
+        answer.push(ExpressionToken::Exclamation);
         pos += 1;
       }
       c if c.is_whitespace() => {

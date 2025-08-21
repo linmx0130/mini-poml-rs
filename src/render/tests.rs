@@ -193,6 +193,7 @@ fn test_if_attributes() {
               <let name="isFrenchVisible" value="1" />
               <p if="{{isVisible}}"> Hello, {{name}}! </p>
               <p if="{{isFrenchVisible}}"> Bonjour, {{name}}! </p>
+              <p if="{{ !isVisible }}"> Something is hidden! </p>
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
@@ -206,6 +207,7 @@ fn test_if_attributes() {
   let output = renderer.render().unwrap();
   assert!(!output.contains("Hello, world!"));
   assert!(output.contains("Bonjour, world!"));
+  assert!(output.contains("Something is hidden"));
 }
 
 #[test]
