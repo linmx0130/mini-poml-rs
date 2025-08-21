@@ -133,7 +133,7 @@ where
     }
 
     if tag_node.name == "let" {
-      self.process_let_node(attribute_values)
+      self.process_let_node(attribute_values, children_result)
     } else if tag_node.name == "include" {
       self.process_include_node(attribute_values)
     } else {
@@ -146,12 +146,14 @@ where
     }
   }
 
-  fn process_let_node(&mut self, attribute_values: Vec<(String, String)>) -> Result<String> {
+  fn process_let_node(
+    &mut self,
+    attribute_values: Vec<(String, String)>,
+    children_result: Vec<String>,
+  ) -> Result<String> {
     /* TODO
-     * 1. Support type attribute
-     * 2. Support src attribute
-     * 3. Support the case where name / value is missing
-     * 4. Support using the content as value
+     * 1. Support array and object types
+     * 2. Support the case where name is missing
      */
     let Some((_, name)) = attribute_values.iter().find(|v| v.0 == "name") else {
       return Err(Error {
@@ -161,12 +163,93 @@ where
       });
     };
 
-    let Some((_, value)) = attribute_values.iter().find(|v| v.0 == "value") else {
-      return Err(Error {
-        kind: ErrorKind::RendererError,
-        message: format!("`value` attribute not found on <let>."),
-        source: None,
-      });
+    // Check whether more than one source of value is provided
+    let children_value = if children_result.len() > 0 {
+      Some(children_result.join(""))
+    } else {
+      None
+    };
+
+    let attribute_value = match attribute_values.iter().find(|v| v.0 == "value") {
+      Some((_, value)) => Some(value.to_string()),
+      None => None,
+    };
+
+    let src_value = match attribute_values.iter().find(|v| v.0 == "src") {
+      Some((_, src)) => {
+        use std::io::Read;
+        let mut file_content_buf = String::new();
+        let mut file = match std::fs::File::open(src) {
+          Ok(f) => f,
+          Err(e) => {
+            return Err(Error {
+              kind: ErrorKind::RendererError,
+              message: format!("Failed to open file of variable assignment: {}", src),
+              source: Some(Box::new(e)),
+            });
+          }
+        };
+        match file.read_to_string(&mut file_content_buf) {
+          Ok(_) => {}
+          Err(e) => {
+            return Err(Error {
+              kind: ErrorKind::RendererError,
+              message: format!("Failed to read file of varaible assignment: {}", src),
+              source: Some(Box::new(e)),
+            });
+          }
+        };
+        match serde_json::from_str(&file_content_buf) {
+          Ok(v) => Some(v),
+          Err(e) => {
+            return Err(Error {
+              kind: ErrorKind::RendererError,
+              message: format!("Failed to decode json file of varaible assignment: {}", src),
+              source: Some(Box::new(e)),
+            });
+          }
+        }
+      }
+      None => None,
+    };
+    let mut value_count = 0;
+    if children_value.is_some() {
+      value_count += 1;
+    }
+    if src_value.is_some() {
+      value_count += 1;
+    }
+    if attribute_value.is_some() {
+      value_count += 1;
+    }
+
+    let value: String = match value_count {
+      0 => {
+        return Err(Error {
+          kind: ErrorKind::RendererError,
+          message: format!("No value is provided for the <let> node to assign {}", name),
+          source: None,
+        });
+      }
+      1 => {
+        if children_value.is_some() {
+          children_value.unwrap()
+        } else if src_value.is_some() {
+          src_value.unwrap()
+        } else {
+          attribute_value.unwrap()
+        }
+      }
+      _ => {
+        return Err(Error {
+          kind: ErrorKind::RendererError,
+          message: format!(
+            "More than one value is provided for the <let> node to assign {}",
+            name
+          ),
+          source: None,
+        });
+      }
     };
 
     let type_value = match attribute_values.iter().find(|v| v.0 == "type") {
@@ -177,7 +260,7 @@ where
     if type_value != "string" {
       match type_value {
         "integer" => {
-          let int_val: i64 = match str::parse(value) {
+          let int_val: i64 = match str::parse(&value) {
             Ok(v) => v,
             Err(e) => {
               return Err(Error {
@@ -194,7 +277,7 @@ where
         }
         "number" => {
           if value.contains('.') {
-            let fval: f64 = match str::parse(value) {
+            let fval: f64 = match str::parse(&value) {
               Ok(v) => v,
               Err(e) => {
                 return Err(Error {
@@ -209,7 +292,7 @@ where
               Value::Number(serde_json::Number::from_f64(fval.into()).unwrap()),
             );
           } else {
-            let int_val: i64 = match str::parse(value) {
+            let int_val: i64 = match str::parse(&value) {
               Ok(v) => v,
               Err(e) => {
                 return Err(Error {
@@ -238,9 +321,7 @@ where
         }
       }
     } else {
-      self
-        .context
-        .set_value(name, Value::String(value.to_string()));
+      self.context.set_value(name, Value::String(value));
     }
     Ok("".to_owned())
   }

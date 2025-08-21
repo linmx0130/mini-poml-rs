@@ -105,6 +105,44 @@ fn test_let_tag() {
 }
 
 #[test]
+fn test_let_tag_children_value() {
+  let doc = r#"
+            <poml syntax="markdown">
+              <let name="name">world</let>
+              <p> Hello, {{name}}! </p>
+            </poml>
+        "#;
+  let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
+  let parser = PomlParser::from_str(doc);
+  let mut renderer = Renderer {
+    parser: parser,
+    context: context,
+    tag_renderer: TestTagRenderer {},
+  };
+
+  let output = renderer.render().unwrap();
+  assert!(output.contains("Hello, world!"));
+}
+
+#[test]
+fn test_let_tag_duplicated_values() {
+  let doc = r#"
+            <poml syntax="markdown">
+              <let name="name" value="le monde">world</let>
+              <p> Hello, {{name}}! </p>
+            </poml>
+        "#;
+  let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
+  let parser = PomlParser::from_str(doc);
+  let mut renderer = Renderer {
+    parser: parser,
+    context: context,
+    tag_renderer: TestTagRenderer {},
+  };
+
+  assert!(renderer.render().is_err());
+}
+#[test]
 fn test_let_tag_with_type() {
   let doc = r#"
             <poml syntax="markdown">
