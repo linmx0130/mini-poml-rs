@@ -171,6 +171,31 @@ fn test_if_attributes() {
 }
 
 #[test]
+fn test_for_attributes() {
+  let doc = r#"
+            <poml syntax="markdown">
+              <p for="name in ['apple', 'banana', 'cherry']"> 
+                Hello, {{name}}! {{ loop.index }}
+                <p if="{{ loop.last }}"> End: {{ name }}</p>
+              </p>
+            </poml>
+        "#;
+  let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
+  let parser = PomlParser::from_str(doc);
+  let mut renderer = Renderer {
+    parser: parser,
+    context: context,
+    tag_renderer: TestTagRenderer {},
+  };
+
+  let output = renderer.render().unwrap();
+  assert!(output.contains("Hello, apple! 0"));
+  assert!(output.contains("Hello, banana! 1"));
+  assert!(output.contains("Hello, cherry! 2"));
+  assert!(output.contains("End: cherry"));
+}
+
+#[test]
 fn test_code_tag() {
   use crate::MarkdownPomlRenderer;
   let code_piece = r#"

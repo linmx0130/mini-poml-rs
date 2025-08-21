@@ -7,14 +7,13 @@ This project is still in early development. Use at your own risk! The API may ch
 ## Features 
 ### Supported features
 * Variables
-* `if` attribute
+* `if` / `for` attribute
 * `<let>` for assigning values to variables 
 * `<include>` to include other files
 * Render as Markdown
 * `<code>` block
 
 ### Features in work
-* `for` attribute
 * Expression evaluation
 
 ## Copyright

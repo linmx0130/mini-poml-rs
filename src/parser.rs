@@ -202,6 +202,17 @@ impl<'a> PomlParser<'a> {
       pos = self.consume_space(pos);
       if self.buf[pos].is_ascii_alphanumeric() {
         let (attribute_name, next_pos) = self.consume_key_str(pos);
+        if attributes.iter().find(|v| v.0 == attribute_name).is_some() {
+          return Err(Error {
+            kind: ErrorKind::ParserError,
+            message: format!(
+              "Duplicate attribute key at position {:?}: {}",
+              self.get_line_and_col_from_pos(pos),
+              attribute_name
+            ),
+            source: None,
+          });
+        }
         pos = self.consume_space(next_pos);
         // Expect to see '='
         if self.buf[pos] != b'=' {
@@ -570,5 +581,14 @@ mod tests {
     let mut parser = PomlParser::from_str(doc);
     let node = parser.parse_as_node().unwrap();
     assert_eq!(node.children.iter().filter(|v| v.is_tag()).count(), 2);
+  }
+
+  #[test]
+  fn parse_multiple_same_key_attribute_doc() {
+    let doc = r#"
+        <poml syntax="markdown" syntax="json"></poml>
+        "#;
+    let mut parser = PomlParser::from_str(doc);
+    assert!(parser.parse_as_node().is_err());
   }
 }

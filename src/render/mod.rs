@@ -10,8 +10,8 @@ pub mod tag_renderer;
 pub(crate) mod utils;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::{PomlNode, PomlParser};
-use serde_json::Value;
+use crate::{PomlNode, PomlParser, PomlTagNode};
+use serde_json::{Value, json};
 
 pub struct Renderer<'a, T>
 where
@@ -35,40 +35,114 @@ where
     match node {
       PomlNode::Tag(tag_node) => {
         let mut attribute_values: Vec<(String, String)> = Vec::new();
+        let mut for_loop_attribute: Option<&str> = None;
+        let mut if_attribute_present = false;
         for (key, value_raw) in tag_node.attributes.iter() {
           let value = self.render_text(&value_raw[1..value_raw.len() - 1])?;
           if key == &"if" {
-            if utils::is_false_value(&value) {
-              return Ok("".to_owned());
-            }
+            if_attribute_present = true;
           }
-          attribute_values.push((key.to_string(), value));
+          if key == &"for" {
+            for_loop_attribute = Some(&value_raw[1..value_raw.len() - 1]);
+          } else {
+            attribute_values.push((key.to_string(), value));
+          }
         }
-        let mut children_result = Vec::new();
+        if if_attribute_present && for_loop_attribute.is_some() {
+          return Err(Error {
+            kind: ErrorKind::RendererError,
+            message: format!(
+              "Control flow attributes `if` and `for` on the same node is not supported!"
+            ),
+            source: None,
+          });
+        }
 
-        if tag_node.children.len() > 0 {
+        // Process for loop
+        if let Some(for_loop_instruction) = for_loop_attribute {
+          let for_loop_components: Vec<&str> = for_loop_instruction.split(" in ").collect();
+          if for_loop_components.len() != 2 {
+            return Err(Error {
+              kind: ErrorKind::RendererError,
+              message: format!("Invalid for-loop attribute value: {}", for_loop_instruction),
+              source: None,
+            });
+          }
+          let for_item_name = for_loop_components[0].trim();
+          let for_range_value = self.context.evaluate(for_loop_components[1].trim())?;
+          let Value::Array(for_range) = for_range_value else {
+            return Err(Error {
+              kind: ErrorKind::RendererError,
+              message: format!(
+                "For loop range is not an array: {}",
+                for_loop_components[1].trim()
+              ),
+              source: None,
+            });
+          };
+
           self.context.push_scope();
-          for child in tag_node.children.iter() {
-            children_result.push(self.render_impl(child)?);
+          let mut answer = String::new();
+          for (item_idx, item_value) in for_range.iter().enumerate() {
+            self.context.set_value(for_item_name, item_value.clone());
+            let loop_variable = json!({
+                "index": item_idx,
+                "length": for_range.len(),
+                "first": item_idx == 0,
+                "last": item_idx + 1 == for_range.len()
+            });
+            self.context.set_value("loop", loop_variable);
+            let item_node_result =
+              self.process_tag_node_without_for(&tag_node, attribute_values.clone())?;
+            answer += &item_node_result;
           }
           self.context.pop_scope();
-        }
-
-        if tag_node.name == "let" {
-          self.process_let_node(attribute_values)
-        } else if tag_node.name == "include" {
-          self.process_include_node(attribute_values)
+          return Ok(answer);
         } else {
-          Ok(self.tag_renderer.render_tag(
-            tag_node,
-            &attribute_values,
-            children_result,
-            self.parser.buf,
-          )?)
+          self.process_tag_node_without_for(&tag_node, attribute_values)
         }
       }
       PomlNode::Text(text) => self.render_text(text),
       PomlNode::Whitespace => Ok(" ".to_owned()),
+    }
+  }
+
+  /**
+   * The loop attribute `for` should be processed before this function is called.
+   */
+  fn process_tag_node_without_for(
+    &mut self,
+    tag_node: &PomlTagNode,
+    attribute_values: Vec<(String, String)>,
+  ) -> Result<String> {
+    for (key, value) in &attribute_values {
+      if key == &"if" {
+        if utils::is_false_value(&value) {
+          return Ok("".to_owned());
+        }
+      }
+    }
+
+    let mut children_result = Vec::new();
+    if tag_node.children.len() > 0 {
+      self.context.push_scope();
+      for child in tag_node.children.iter() {
+        children_result.push(self.render_impl(child)?);
+      }
+      self.context.pop_scope();
+    }
+
+    if tag_node.name == "let" {
+      self.process_let_node(attribute_values)
+    } else if tag_node.name == "include" {
+      self.process_include_node(attribute_values)
+    } else {
+      Ok(self.tag_renderer.render_tag(
+        tag_node,
+        &attribute_values,
+        children_result,
+        self.parser.buf,
+      )?)
     }
   }
 
