@@ -358,3 +358,42 @@ fn test_include() {
   let output = renderer.render().unwrap();
   assert!(output.contains("# AAA"));
 }
+
+#[test]
+fn test_list_render() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <list listStyle="star">
+    <item>Head</item>
+    <item for="v in [1,2,3]">{{ v }}</item>
+  </list>
+</poml>
+"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("* Head"));
+  assert!(output.contains("* 1"));
+  assert!(output.contains("* 2"));
+  assert!(output.contains("* 3"));
+}
+
+#[test]
+fn test_nested_list_render() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <list>
+    <item for="v in [1,2,3]">
+      <list listStyle = "decimal">
+        <item for="u in ['a', 'b', 'c']">({{v}}, {{ u }})</item>
+      </list>
+    </item>
+  </list>
+</poml>
+"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("-  1. (1, a)\n\t2. (1, b)\n\t3. (1, c)"));
+  assert!(output.contains("-  1. (2, a)\n\t2. (2, b)\n\t3. (2, c)"));
+}

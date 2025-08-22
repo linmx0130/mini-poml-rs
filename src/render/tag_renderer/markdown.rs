@@ -4,20 +4,10 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use super::utils;
+use super::TagRenderer;
 use crate::error::{Error, ErrorKind, Result};
+use crate::render::utils;
 use crate::{PomlNode, PomlTagNode};
-
-pub trait TagRenderer: Clone {
-  fn render_tag(
-    &self,
-    tag: &PomlTagNode,
-    attribute_values: &Vec<(String, String)>,
-    children_result: Vec<String>,
-    source_buf: &[u8],
-  ) -> Result<String>;
-}
-
 /**
  * The default renderer to render markdown content.
  */
@@ -47,6 +37,8 @@ impl TagRenderer for MarkdownTagRenderer {
         Ok(self.render_intention_block_tag("Stepwise Instructions", children_result))
       }
       "meta" => Ok("".to_owned()),
+      "item" => Ok(self.render_item_tag(children_result)),
+      "list" => self.render_list_tag(tag, attribute_values, children_result),
       _ => Err(Error {
         kind: ErrorKind::RendererError,
         message: format!("Unknown tag: <{}>", tag.name),
@@ -157,5 +149,76 @@ impl MarkdownTagRenderer {
       }
     }
     answer
+  }
+
+  fn render_item_tag(&self, children_result: Vec<String>) -> String {
+    let raw_content = children_result.join("");
+    let lines: Vec<&str> = raw_content.split('\n').collect();
+    let mut new_content = lines.get(0).map_or("", |v| v).to_string();
+    for l in &lines[1..lines.len()] {
+      new_content += "\n\t";
+      new_content += l;
+    }
+    new_content += "\n";
+    new_content
+  }
+
+  fn render_list_tag(
+    &self,
+    tag: &PomlTagNode,
+    attribute_values: &Vec<(String, String)>,
+    children_result: Vec<String>,
+  ) -> Result<String> {
+    let children_tags = &tag.children;
+    if children_tags.len() != children_result.len() {
+      return Err(Error {
+        kind: ErrorKind::RendererError,
+        message: format!("Missing children result in rendering <list>."),
+        source: None,
+      });
+    }
+    let list_style = match attribute_values.iter().find(|v| v.0 == "listStyle") {
+      Some((_, v)) => v,
+      None => "dash",
+    };
+    let mut answer = String::new();
+    let mut itemCounter = 0;
+    for i in 0..children_tags.len() {
+      let PomlNode::Tag(ref tag_node) = children_tags[i] else {
+        continue;
+      };
+      if tag_node.name != "item" {
+        // skip non item children
+        continue;
+      }
+      for l in children_result[i].split("\n") {
+        if l.len() == 0 {
+          answer += "\n";
+        } else if l.starts_with("\t") {
+          answer += l;
+          answer += "\n";
+        } else {
+          itemCounter += 1;
+          let item_mark = match list_style {
+            "dash" => "- ".to_owned(),
+            "star" => "* ".to_owned(),
+            "plus" => "+ ".to_owned(),
+            "decimal" => format!("{}. ", itemCounter),
+            _ => {
+              return Err(Error {
+                kind: ErrorKind::RendererError,
+                message: format!("Unknown list style: {}", list_style),
+                source: None,
+              });
+            }
+          };
+
+          answer += &item_mark;
+          answer += l;
+          answer += "\n";
+        }
+      }
+    }
+    Ok(answer)
   }
 }
