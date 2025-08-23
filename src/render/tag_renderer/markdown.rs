@@ -182,7 +182,7 @@ impl MarkdownTagRenderer {
       None => "dash",
     };
     let mut answer = String::new();
-    let mut itemCounter = 0;
+    let mut item_counter = 0;
     for i in 0..children_tags.len() {
       let PomlNode::Tag(ref tag_node) = children_tags[i] else {
         continue;
@@ -198,12 +198,12 @@ impl MarkdownTagRenderer {
           answer += l;
           answer += "\n";
         } else {
-          itemCounter += 1;
+          item_counter += 1;
           let item_mark = match list_style {
             "dash" => "- ".to_owned(),
             "star" => "* ".to_owned(),
             "plus" => "+ ".to_owned(),
-            "decimal" => format!("{}. ", itemCounter),
+            "decimal" => format!("{}. ", item_counter),
             _ => {
               return Err(Error {
                 kind: ErrorKind::RendererError,

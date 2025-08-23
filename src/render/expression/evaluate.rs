@@ -27,83 +27,128 @@ pub fn evaluate_expression_tokens(
   };
 }
 
+enum ExpressionPart {
+  Value(serde_json::Value),
+  // TODO: add operator name into the Operator enum value for processing
+  Operator,
+}
+
 fn evaluate_expression_value(
   tokens: &[ExpressionToken],
   start_pos: usize,
   context: &RenderContext,
 ) -> Result<(Value, usize)> {
   let mut pos = start_pos;
-  let mut ret_value = Value::Null;
-  match tokens[start_pos] {
-    ExpressionToken::Exclamation => {
-      if start_pos + 1 >= tokens.len() {
-        return Err(Error {
-          kind: ErrorKind::EvaluatorError,
-          message: format!("No value after NOT operator"),
-          source: None,
-        });
-      }
-      let (value, next_pos) = recognize_next_value(tokens, start_pos + 1, context)?;
-      ret_value = Value::Bool(is_false_json_value(&value));
-      pos = next_pos;
-    }
-    ExpressionToken::Ref(_) | ExpressionToken::Number(_) | ExpressionToken::String(_) => {
-      let (value, next_pos) = recognize_next_value(tokens, start_pos, context)?;
-      ret_value = value;
-      pos = next_pos;
-    }
-    ExpressionToken::LeftBracket => {
-      // array
-      pos += 1;
-      let mut array_value: Vec<Value> = Vec::new();
-      while pos < tokens.len() {
-        if tokens[pos] == ExpressionToken::RightBracket {
-          pos = pos + 1;
-          ret_value = Value::Array(array_value);
-          break;
-        } else {
-          // read next sub-expression
-          let (item_value, next_pos) = evaluate_expression_value(tokens, pos, context)?;
-          array_value.push(item_value);
-          match tokens[next_pos] {
-            ExpressionToken::Comma => {
-              pos = next_pos + 1;
-            }
-            ExpressionToken::RightBracket => {
-              pos = next_pos;
-              continue;
-            }
-            _ => {
-              return Err(Error {
-                kind: ErrorKind::EvaluatorError,
-                message: format!(
-                  "Expect comma ',' or right bracket ']' characters, but found {:?}",
-                  tokens[pos]
-                ),
-                source: None,
-              });
-            }
-          };
+  let mut parts: Vec<ExpressionPart> = vec![];
+  while pos < tokens.len() {
+    match tokens[pos] {
+      // Signals of ending of a (sub) expression: ']', '}', ','
+      ExpressionToken::RightBracket | ExpressionToken::RightCurly | ExpressionToken::Comma => break,
+      ExpressionToken::Exclamation => {
+        if pos + 1 >= tokens.len() {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("No value after NOT operator"),
+            source: None,
+          });
         }
+        let (value, next_pos) = recognize_next_value(tokens, pos + 1, context)?;
+        parts.push(ExpressionPart::Value(Value::Bool(is_false_json_value(
+          &value,
+        ))));
+        pos += next_pos;
       }
-      if ret_value == Value::Null {
+      ExpressionToken::Ref(_) | ExpressionToken::Number(_) | ExpressionToken::String(_) => {
+        let (value, next_pos) = recognize_next_value(tokens, pos, context)?;
+        parts.push(ExpressionPart::Value(value));
+        pos = next_pos;
+      }
+      ExpressionToken::LeftBracket => {
+        let (value, next_pos) = recognize_next_array(tokens, pos, context)?;
+        parts.push(ExpressionPart::Value(value));
+        pos = next_pos;
+      }
+      ExpressionToken::LeftCurly => {
         return Err(Error {
           kind: ErrorKind::EvaluatorError,
-          message: format!("Array value has not finished in the expression"),
+          message: format!("Not implemented to recognize objects"),
           source: None,
         });
       }
-    }
-    _ => {
-      return Err(Error {
-        kind: ErrorKind::EvaluatorError,
-        message: format!("Not implemented"),
-        source: None,
-      });
+      _ => {
+        return Err(Error {
+          kind: ErrorKind::EvaluatorError,
+          message: format!("Not implemented to recognize token: {:?}", tokens[pos]),
+          source: None,
+        });
+      }
     }
   }
-  // TODO: recognize and process operators after the first value
+  if parts.len() > 1 {
+    // TODO: recognize and process expressions longer than 1 part
+    return Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: format!("Not implemented"),
+      source: None,
+    });
+  }
+  let Some(ExpressionPart::Value(ret_value)) = parts.pop() else {
+    return Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: format!("No value found in the expression"),
+      source: None,
+    });
+  };
   Ok((ret_value, pos))
+}
+
+fn recognize_next_array(
+  tokens: &[ExpressionToken],
+  start_pos: usize,
+  context: &RenderContext,
+) -> Result<(Value, usize)> {
+  let mut pos = start_pos + 1;
+  let mut array_value: Vec<Value> = Vec::new();
+  let mut array_finished = false;
+  while pos < tokens.len() {
+    if tokens[pos] == ExpressionToken::RightBracket {
+      pos = pos + 1;
+      array_finished = true;
+      break;
+    } else {
+      // read next sub-expression
+      let (item_value, next_pos) = evaluate_expression_value(tokens, pos, context)?;
+      array_value.push(item_value);
+      match tokens[next_pos] {
+        ExpressionToken::Comma => {
+          pos = next_pos + 1;
+        }
+        ExpressionToken::RightBracket => {
+          pos = next_pos;
+          continue;
+        }
+        _ => {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!(
+              "Expect comma ',' or right bracket ']' characters, but found {:?}",
+              tokens[pos]
+            ),
+            source: None,
+          });
+        }
+      };
+    }
+  }
+  return if !array_finished {
+    Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: format!("Array value has not finished in the expression"),
+      source: None,
+    })
+  } else {
+    Ok((Value::Array(array_value), pos))
+  };
 }
 
 fn recognize_next_value(
