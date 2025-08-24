@@ -43,7 +43,22 @@ fn evaluate_expression_value(
   while pos < tokens.len() {
     match tokens[pos] {
       // Signals of ending of a (sub) expression: ']', '}', ','
-      ExpressionToken::RightBracket | ExpressionToken::RightCurly | ExpressionToken::Comma => break,
+      ExpressionToken::RightBracket
+      | ExpressionToken::RightCurly
+      | ExpressionToken::Comma
+      | ExpressionToken::RightParenthesis => break,
+      ExpressionToken::LeftParenthesis => {
+        let (value, new_pos) = evaluate_expression_value(tokens, pos + 1, context)?;
+        if new_pos >= tokens.len() || tokens[new_pos] != ExpressionToken::RightParenthesis {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Not paired right parenthesis for a left parenthesis"),
+            source: None,
+          });
+        }
+        pos = new_pos + 1;
+        parts.push(ExpressionPart::Value(value));
+      }
       // Arith operator
       ExpressionToken::ArithOp(op_name_buf) => {
         let op_name = str::from_utf8(op_name_buf).unwrap();
@@ -640,5 +655,76 @@ mod tests {
     .unwrap();
     assert_eq!(result, json!(-2.0));
     assert_eq!(pos, 3);
+  }
+
+  #[test]
+  fn test_evaluate_parenthesis() {
+    let Value::Object(variables) = json!({
+        "a": 1,
+        "b": 2,
+        "s": " "
+    }) else {
+      panic!();
+    };
+    let context = RenderContext::from(variables);
+    let (result, pos) = evaluate_expression_value(
+      &[
+        ExpressionToken::Ref(b"a"),
+        ExpressionToken::ArithOp(b"-"),
+        ExpressionToken::LeftParenthesis,
+        ExpressionToken::Ref(b"b"),
+        ExpressionToken::ArithOp(b"-"),
+        ExpressionToken::Ref(b"a"),
+        ExpressionToken::RightParenthesis,
+      ],
+      0,
+      &context,
+    )
+    .unwrap();
+    assert_eq!(result, json!(0));
+    assert_eq!(pos, 7);
+  }
+
+  #[test]
+  fn test_mix_int_string_plus() {
+    let Value::Object(variables) = json!({
+        "a": 1,
+        "b": 2,
+        "s": " "
+    }) else {
+      panic!();
+    };
+    let context = RenderContext::from(variables);
+    let (result, pos) = evaluate_expression_value(
+      &[
+        ExpressionToken::Ref(b"s"),
+        ExpressionToken::ArithOp(b"+"),
+        ExpressionToken::LeftParenthesis,
+        ExpressionToken::Ref(b"a"),
+        ExpressionToken::ArithOp(b"+"),
+        ExpressionToken::Ref(b"b"),
+        ExpressionToken::RightParenthesis,
+      ],
+      0,
+      &context,
+    )
+    .unwrap();
+    assert_eq!(result, json!(" 3"));
+    assert_eq!(pos, 7);
+
+    let (result, pos) = evaluate_expression_value(
+      &[
+        ExpressionToken::Ref(b"s"),
+        ExpressionToken::ArithOp(b"+"),
+        ExpressionToken::Ref(b"a"),
+        ExpressionToken::ArithOp(b"+"),
+        ExpressionToken::Ref(b"b"),
+      ],
+      0,
+      &context,
+    )
+    .unwrap();
+    assert_eq!(result, json!(" 12"));
+    assert_eq!(pos, 5);
   }
 }
