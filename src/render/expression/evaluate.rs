@@ -27,10 +27,10 @@ pub fn evaluate_expression_tokens(
   };
 }
 
-enum ExpressionPart {
+#[derive(Debug, Clone, PartialEq)]
+enum ExpressionPart<'a> {
   Value(serde_json::Value),
-  // TODO: add operator name into the Operator enum value for processing
-  Operator,
+  Operator(&'a str),
 }
 
 fn evaluate_expression_value(
@@ -44,6 +44,12 @@ fn evaluate_expression_value(
     match tokens[pos] {
       // Signals of ending of a (sub) expression: ']', '}', ','
       ExpressionToken::RightBracket | ExpressionToken::RightCurly | ExpressionToken::Comma => break,
+      // Arith operator
+      ExpressionToken::ArithOp(op_name_buf) => {
+        let op_name = str::from_utf8(op_name_buf).unwrap();
+        pos = pos + 1;
+        parts.push(ExpressionPart::Operator(op_name))
+      }
       ExpressionToken::Exclamation => {
         if pos + 1 >= tokens.len() {
           return Err(Error {
@@ -84,11 +90,11 @@ fn evaluate_expression_value(
       }
     }
   }
+  parts = process_plus_and_minus_operators(parts)?;
   if parts.len() > 1 {
-    // TODO: recognize and process expressions longer than 1 part
     return Err(Error {
       kind: ErrorKind::EvaluatorError,
-      message: format!("Not implemented"),
+      message: format!("Some operators remained unprocessed!"),
       source: None,
     });
   }
@@ -100,6 +106,72 @@ fn evaluate_expression_value(
     });
   };
   Ok((ret_value, pos))
+}
+
+fn process_plus_and_minus_operators<'a>(
+  parts: Vec<ExpressionPart<'a>>,
+) -> Result<Vec<ExpressionPart<'a>>> {
+  let mut contain_plus_minus = false;
+  for i in 0..parts.len() {
+    if parts[i] == ExpressionPart::Operator("+") || parts[i] == ExpressionPart::Operator("-") {
+      contain_plus_minus = true;
+    }
+  }
+
+  // directly return if there is no +/- operators in the input
+  if !contain_plus_minus {
+    return Ok(parts);
+  }
+
+  let mut new_parts = Vec::new();
+  let mut i = 0;
+  while i < parts.len() {
+    match parts[i] {
+      ExpressionPart::Operator("+") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator + appears without a value before it."),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator + appears without a value after it."),
+            source: None,
+          });
+        };
+        let value = handle_plus_operator(&a, b)?;
+        new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      ExpressionPart::Operator("-") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator - appears without a value before it."),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator - appears without a value after it."),
+            source: None,
+          });
+        };
+        let value = handle_minus_operator(&a, b)?;
+        new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      _ => {
+        new_parts.push(parts[i].clone());
+        i = i + 1;
+      }
+    }
+  }
+  Ok(new_parts)
 }
 
 fn recognize_next_array(
@@ -153,10 +225,9 @@ fn recognize_next_array(
 
 fn recognize_next_value(
   tokens: &[ExpressionToken],
-  start_pos: usize,
+  pos: usize,
   context: &RenderContext,
 ) -> Result<(Value, usize)> {
-  let mut pos = start_pos;
   while pos < tokens.len() {
     let cur = &tokens[pos];
     match cur {
@@ -312,6 +383,110 @@ fn match_u8_str(src: &[u8], pat: &str) -> bool {
   true
 }
 
+fn cast_as_i64(v: &Value) -> Option<i64> {
+  match v {
+    Value::Null => None,
+    Value::Bool(b) => {
+      if *b {
+        Some(1)
+      } else {
+        Some(0)
+      }
+    }
+    Value::Number(n) => n.as_i64(),
+    Value::String(_) => None,
+    Value::Array(_) => None,
+    Value::Object(_) => None,
+  }
+}
+
+fn cast_as_f64(v: &Value) -> Option<f64> {
+  match v {
+    Value::Null => None,
+    Value::Bool(b) => {
+      if *b {
+        Some(1.0)
+      } else {
+        Some(0.0)
+      }
+    }
+    Value::Number(n) => n.as_f64(),
+    Value::String(_) => None,
+    Value::Array(_) => None,
+    Value::Object(_) => None,
+  }
+}
+
+fn cast_as_string(v: &Value) -> Option<String> {
+  match v {
+    Value::Null => Some("null".to_string()),
+    Value::Bool(b) => {
+      if *b {
+        Some("true".to_owned())
+      } else {
+        Some("false".to_owned())
+      }
+    }
+    Value::Number(n) => Some(format!("{}", n)),
+    Value::String(s) => Some(s.to_owned()),
+    Value::Array(_) => None,
+    Value::Object(_) => None,
+  }
+}
+
+fn handle_plus_operator(a: &Value, b: &Value) -> Result<Value> {
+  let int_a = cast_as_i64(a);
+  let int_b = cast_as_i64(b);
+  if int_a.is_some() && int_b.is_some() {
+    return Ok(Value::Number(
+      serde_json::Number::from_i128((int_a.unwrap() + int_b.unwrap()).into()).unwrap(),
+    ));
+  }
+  let num_a = cast_as_f64(a);
+  let num_b = cast_as_f64(b);
+  if num_a.is_some() && num_b.is_some() {
+    return Ok(Value::Number(
+      serde_json::Number::from_f64(num_a.unwrap() + num_b.unwrap()).unwrap(),
+    ));
+  }
+  let str_a = cast_as_string(&a);
+  let str_b = cast_as_string(&b);
+  if str_a.is_some() && str_b.is_some() {
+    return Ok(Value::String(format!(
+      "{}{}",
+      str_a.unwrap(),
+      str_b.unwrap()
+    )));
+  }
+  return Err(Error {
+    kind: ErrorKind::EvaluatorError,
+    message: format!("Failed to perform plus operator on {:?} and {:?}.", a, b),
+    source: None,
+  });
+}
+
+fn handle_minus_operator(a: &Value, b: &Value) -> Result<Value> {
+  let int_a = cast_as_i64(a);
+  let int_b = cast_as_i64(b);
+  if int_a.is_some() && int_b.is_some() {
+    return Ok(Value::Number(
+      serde_json::Number::from_i128((int_a.unwrap() - int_b.unwrap()).into()).unwrap(),
+    ));
+  }
+  let num_a = cast_as_f64(a);
+  let num_b = cast_as_f64(b);
+  if num_a.is_some() && num_b.is_some() {
+    return Ok(Value::Number(
+      serde_json::Number::from_f64(num_a.unwrap() - num_b.unwrap()).unwrap(),
+    ));
+  }
+  return Err(Error {
+    kind: ErrorKind::EvaluatorError,
+    message: format!("Failed to perform plus operator on {:?} and {:?}.", a, b),
+    source: None,
+  });
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -391,5 +566,79 @@ mod tests {
       .unwrap(),
       json!(true)
     );
+  }
+
+  #[test]
+  fn test_evaluate_plus_arith() {
+    let Value::Object(variables) = json!({
+        "a": 1,
+        "b": 2,
+        "s": "a"
+    }) else {
+      panic!();
+    };
+    let context = RenderContext::from(variables);
+    let (result, pos) = evaluate_expression_value(
+      &[
+        ExpressionToken::Ref(b"a"),
+        ExpressionToken::ArithOp(b"+"),
+        ExpressionToken::Ref(b"b"),
+      ],
+      0,
+      &context,
+    )
+    .unwrap();
+    assert_eq!(result, json!(3));
+    assert_eq!(pos, 3);
+
+    let (result, pos) = evaluate_expression_value(
+      &[
+        ExpressionToken::Ref(b"a"),
+        ExpressionToken::ArithOp(b"+"),
+        ExpressionToken::Ref(b"s"),
+      ],
+      0,
+      &context,
+    )
+    .unwrap();
+    assert_eq!(result, json!("1a"));
+    assert_eq!(pos, 3);
+  }
+
+  #[test]
+  fn test_evaluate_minus_arith() {
+    let Value::Object(variables) = json!({
+        "a": 1,
+        "b": 2,
+        "c": 3.0,
+    }) else {
+      panic!();
+    };
+    let context = RenderContext::from(variables);
+    let (result, pos) = evaluate_expression_value(
+      &[
+        ExpressionToken::Ref(b"a"),
+        ExpressionToken::ArithOp(b"-"),
+        ExpressionToken::Ref(b"b"),
+      ],
+      0,
+      &context,
+    )
+    .unwrap();
+    assert_eq!(result, json!(-1));
+    assert_eq!(pos, 3);
+
+    let (result, pos) = evaluate_expression_value(
+      &[
+        ExpressionToken::Ref(b"a"),
+        ExpressionToken::ArithOp(b"-"),
+        ExpressionToken::Ref(b"c"),
+      ],
+      0,
+      &context,
+    )
+    .unwrap();
+    assert_eq!(result, json!(-2.0));
+    assert_eq!(pos, 3);
   }
 }
