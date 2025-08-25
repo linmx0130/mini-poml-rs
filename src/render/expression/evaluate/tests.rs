@@ -226,3 +226,59 @@ fn test_mix_int_string_plus() {
   assert_eq!(result, json!(" 12"));
   assert_eq!(pos, 5);
 }
+
+#[test]
+fn test_evaluate_times() {
+  let Value::Object(variables) = json!({
+      "a": 1,
+      "b": 2,
+      "c": 4,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, pos) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"+"),
+      ExpressionToken::Ref(b"b"),
+      ExpressionToken::ArithOp(b"*"),
+      ExpressionToken::Ref(b"c"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(9));
+  assert_eq!(pos, 5);
+}
+
+#[test]
+fn test_evaluate_times_and_divide() {
+  let Value::Object(variables) = json!({
+      "a": 1,
+      "b": 2,
+      "c": 4,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, pos) = evaluate_expression_value(
+    &[
+      ExpressionToken::LeftParenthesis,
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"+"),
+      ExpressionToken::Ref(b"b"),
+      ExpressionToken::ArithOp(b"*"),
+      ExpressionToken::Ref(b"c"),
+      ExpressionToken::RightParenthesis,
+      ExpressionToken::ArithOp(b"/"),
+      ExpressionToken::Ref(b"b"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(4.5));
+  assert_eq!(pos, 9);
+}

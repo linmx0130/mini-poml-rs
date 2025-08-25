@@ -105,6 +105,7 @@ fn evaluate_expression_value(
       }
     }
   }
+  parts = process_times_and_divide_operators(parts)?;
   parts = process_plus_and_minus_operators(parts)?;
   if parts.len() > 1 {
     return Err(Error {
@@ -177,6 +178,72 @@ fn process_plus_and_minus_operators<'a>(
           });
         };
         let value = handle_minus_operator(&a, b)?;
+        new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      _ => {
+        new_parts.push(parts[i].clone());
+        i = i + 1;
+      }
+    }
+  }
+  Ok(new_parts)
+}
+
+fn process_times_and_divide_operators<'a>(
+  parts: Vec<ExpressionPart<'a>>,
+) -> Result<Vec<ExpressionPart<'a>>> {
+  let mut contain_times_divide = false;
+  for i in 0..parts.len() {
+    if parts[i] == ExpressionPart::Operator("*") || parts[i] == ExpressionPart::Operator("/") {
+      contain_times_divide = true;
+    }
+  }
+
+  // directly return if there is no * or / operators in the input
+  if !contain_times_divide {
+    return Ok(parts);
+  }
+
+  let mut new_parts = Vec::new();
+  let mut i = 0;
+  while i < parts.len() {
+    match parts[i] {
+      ExpressionPart::Operator("*") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator * appears without a value before it."),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator * appears without a value after it."),
+            source: None,
+          });
+        };
+        let value = handle_times_operator(&a, b)?;
+        new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      ExpressionPart::Operator("/") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator / appears without a value before it."),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator - appears without a value after it."),
+            source: None,
+          });
+        };
+        let value = handle_divide_operator(&a, b)?;
         new_parts.push(ExpressionPart::Value(value));
         i += 2;
       }
@@ -497,10 +564,46 @@ fn handle_minus_operator(a: &Value, b: &Value) -> Result<Value> {
   }
   return Err(Error {
     kind: ErrorKind::EvaluatorError,
-    message: format!("Failed to perform plus operator on {:?} and {:?}.", a, b),
+    message: format!("Failed to perform minus operator on {:?} and {:?}.", a, b),
     source: None,
   });
 }
 
+fn handle_times_operator(a: &Value, b: &Value) -> Result<Value> {
+  let int_a = cast_as_i64(a);
+  let int_b = cast_as_i64(b);
+  if int_a.is_some() && int_b.is_some() {
+    return Ok(Value::Number(
+      serde_json::Number::from_i128((int_a.unwrap() * int_b.unwrap()).into()).unwrap(),
+    ));
+  }
+  let num_a = cast_as_f64(a);
+  let num_b = cast_as_f64(b);
+  if num_a.is_some() && num_b.is_some() {
+    return Ok(Value::Number(
+      serde_json::Number::from_f64(num_a.unwrap() * num_b.unwrap()).unwrap(),
+    ));
+  }
+  return Err(Error {
+    kind: ErrorKind::EvaluatorError,
+    message: format!("Failed to perform times operator on {:?} and {:?}.", a, b),
+    source: None,
+  });
+}
+
+fn handle_divide_operator(a: &Value, b: &Value) -> Result<Value> {
+  let num_a = cast_as_f64(a);
+  let num_b = cast_as_f64(b);
+  if num_a.is_some() && num_b.is_some() {
+    return Ok(Value::Number(
+      serde_json::Number::from_f64(num_a.unwrap() / num_b.unwrap()).unwrap(),
+    ));
+  }
+  return Err(Error {
+    kind: ErrorKind::EvaluatorError,
+    message: format!("Failed to perform times operator on {:?} and {:?}.", a, b),
+    source: None,
+  });
+}
 #[cfg(test)]
 mod tests;
