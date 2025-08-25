@@ -60,10 +60,22 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         answer.push(ExpressionToken::ArithOp(&buf[pos..pos + 1]));
         pos += 1
       }
-      '&' | '|' | '=' => {
+      '&' | '|' => {
         if pos + 1 < buf.len() && buf[pos + 1] == buf[pos] {
           answer.push(ExpressionToken::ArithOp(&buf[pos..pos + 2]));
           pos += 2;
+        } else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator has not been supported!"),
+            source: None,
+          });
+        }
+      }
+      '=' => {
+        if pos + 2 < buf.len() && buf[pos + 1] == b'=' && buf[pos + 2] == b'=' {
+          answer.push(ExpressionToken::ArithOp(&buf[pos..pos + 3]));
+          pos += 3;
         } else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
@@ -234,7 +246,7 @@ mod tests {
 
   #[test]
   fn test_tokenize_logic_expression() {
-    let expression = "(name.age + 1.5) * (true && name.count == 1)";
+    let expression = "(name.age + 1.5) * (true && name.count === 1)";
     let tokens = tokenize_expression(expression.as_bytes()).unwrap();
     assert_eq!(tokens[0], ExpressionToken::LeftParenthesis);
     assert_eq!(tokens[1], ExpressionToken::Ref(b"name.age"));
@@ -246,7 +258,7 @@ mod tests {
     assert_eq!(tokens[7], ExpressionToken::Ref(b"true"));
     assert_eq!(tokens[8], ExpressionToken::ArithOp(b"&&"));
     assert_eq!(tokens[9], ExpressionToken::Ref(b"name.count"));
-    assert_eq!(tokens[10], ExpressionToken::ArithOp(b"=="));
+    assert_eq!(tokens[10], ExpressionToken::ArithOp(b"==="));
     assert_eq!(tokens[11], ExpressionToken::Number(b"1"));
     assert_eq!(tokens[12], ExpressionToken::RightParenthesis);
   }

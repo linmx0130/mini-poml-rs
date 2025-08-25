@@ -282,3 +282,37 @@ fn test_evaluate_times_and_divide() {
   assert_eq!(result, json!(4.5));
   assert_eq!(pos, 9);
 }
+
+#[test]
+fn test_strict_equal_operator() {
+  let Value::Object(variables) = json!({
+      "a": 1,
+      "b": 1,
+      "c": "1",
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"==="),
+      ExpressionToken::Ref(b"b"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(true));
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"==="),
+      ExpressionToken::Ref(b"c"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(false));
+}

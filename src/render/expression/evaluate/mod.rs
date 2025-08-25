@@ -107,6 +107,7 @@ fn evaluate_expression_value(
   }
   parts = process_times_and_divide_operators(parts)?;
   parts = process_plus_and_minus_operators(parts)?;
+  parts = process_equality_operators(parts)?;
   if parts.len() > 1 {
     return Err(Error {
       kind: ErrorKind::EvaluatorError,
@@ -245,6 +246,53 @@ fn process_times_and_divide_operators<'a>(
         };
         let value = handle_divide_operator(&a, b)?;
         new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      _ => {
+        new_parts.push(parts[i].clone());
+        i = i + 1;
+      }
+    }
+  }
+  Ok(new_parts)
+}
+
+fn process_equality_operators<'a>(
+  parts: Vec<ExpressionPart<'a>>,
+) -> Result<Vec<ExpressionPart<'a>>> {
+  let mut contain_equals = false;
+  for i in 0..parts.len() {
+    if parts[i] == ExpressionPart::Operator("===") {
+      contain_equals = true;
+    }
+  }
+
+  // directly return if there is no equality operators in the input
+  if !contain_equals {
+    return Ok(parts);
+  }
+
+  let mut new_parts = Vec::new();
+  let mut i = 0;
+  while i < parts.len() {
+    match parts[i] {
+      ExpressionPart::Operator("===") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator === appears without a value before it."),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator === appears without a value after it."),
+            source: None,
+          });
+        };
+        let value = a == *b;
+        new_parts.push(ExpressionPart::Value(Value::Bool(value)));
         i += 2;
       }
       _ => {
