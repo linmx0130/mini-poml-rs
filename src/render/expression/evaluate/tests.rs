@@ -316,3 +316,64 @@ fn test_strict_equal_operator() {
   .unwrap();
   assert_eq!(result, json!(false));
 }
+
+#[test]
+fn test_logical_operator() {
+  let Value::Object(variables) = json!({
+      "a": true,
+      "b": false,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"&&"),
+      ExpressionToken::Ref(b"b"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(false));
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"||"),
+      ExpressionToken::Ref(b"c"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(true));
+
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"b"),
+      ExpressionToken::ArithOp(b"||"),
+      ExpressionToken::ArithOp(b"!"),
+      ExpressionToken::Ref(b"a"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(false));
+
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::ArithOp(b"!"),
+      ExpressionToken::LeftParenthesis,
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"&&"),
+      ExpressionToken::Ref(b"b"),
+      ExpressionToken::RightParenthesis,
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(true));
+}

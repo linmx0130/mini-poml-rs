@@ -66,18 +66,8 @@ fn evaluate_expression_value(
         parts.push(ExpressionPart::Operator(op_name))
       }
       ExpressionToken::Exclamation => {
-        if pos + 1 >= tokens.len() {
-          return Err(Error {
-            kind: ErrorKind::EvaluatorError,
-            message: format!("No value after NOT operator"),
-            source: None,
-          });
-        }
-        let (value, next_pos) = recognize_next_value(tokens, pos + 1, context)?;
-        parts.push(ExpressionPart::Value(Value::Bool(is_false_json_value(
-          &value,
-        ))));
-        pos += next_pos;
+        pos = pos + 1;
+        parts.push(ExpressionPart::Operator("!"));
       }
       ExpressionToken::Ref(_) | ExpressionToken::Number(_) | ExpressionToken::String(_) => {
         let (value, next_pos) = recognize_next_value(tokens, pos, context)?;
@@ -105,9 +95,12 @@ fn evaluate_expression_value(
       }
     }
   }
+  parts = process_not_operators(parts)?;
   parts = process_times_and_divide_operators(parts)?;
   parts = process_plus_and_minus_operators(parts)?;
   parts = process_equality_operators(parts)?;
+  parts = process_and_operators(parts)?;
+  parts = process_or_operators(parts)?;
   if parts.len() > 1 {
     return Err(Error {
       kind: ErrorKind::EvaluatorError,
@@ -125,6 +118,145 @@ fn evaluate_expression_value(
   Ok((ret_value, pos))
 }
 
+fn process_and_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<ExpressionPart<'a>>> {
+  let mut contain_and = false;
+  for i in 0..parts.len() {
+    if parts[i] == ExpressionPart::Operator("&&") {
+      contain_and = true;
+    }
+  }
+
+  // directly return if there is no and operators in the input
+  if !contain_and {
+    return Ok(parts);
+  }
+
+  let mut new_parts = Vec::new();
+  let mut i = 0;
+  while i < parts.len() {
+    match parts[i] {
+      ExpressionPart::Operator("&&") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator && appears without a value before it."),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator && appears without a value after it."),
+            source: None,
+          });
+        };
+        let mut value = true;
+        if is_false_json_value(&a) {
+          value = false;
+        }
+        if is_false_json_value(b) {
+          value = false;
+        }
+        new_parts.push(ExpressionPart::Value(Value::Bool(value)));
+        i += 2;
+      }
+      _ => {
+        new_parts.push(parts[i].clone());
+        i = i + 1;
+      }
+    }
+  }
+  Ok(new_parts)
+}
+
+fn process_or_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<ExpressionPart<'a>>> {
+  let mut contain_or = false;
+  for i in 0..parts.len() {
+    if parts[i] == ExpressionPart::Operator("||") {
+      contain_or = true;
+    }
+  }
+
+  // directly return if there is no or operators in the input
+  if !contain_or {
+    return Ok(parts);
+  }
+
+  let mut new_parts = Vec::new();
+  let mut i = 0;
+  while i < parts.len() {
+    match parts[i] {
+      ExpressionPart::Operator("||") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator || appears without a value before it."),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator || appears without a value after it."),
+            source: None,
+          });
+        };
+        let mut value = false;
+        if !is_false_json_value(&a) {
+          value = true;
+        }
+        if !is_false_json_value(b) {
+          value = true;
+        }
+        new_parts.push(ExpressionPart::Value(Value::Bool(value)));
+        i += 2;
+      }
+      _ => {
+        new_parts.push(parts[i].clone());
+        i = i + 1;
+      }
+    }
+  }
+  Ok(new_parts)
+}
+
+fn process_not_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<ExpressionPart<'a>>> {
+  let mut contain_not = false;
+  for i in 0..parts.len() {
+    if parts[i] == ExpressionPart::Operator("!") {
+      contain_not = true;
+    }
+  }
+
+  // directly return if there is no not operators in the input
+  if !contain_not {
+    return Ok(parts);
+  }
+
+  let mut new_parts = Vec::new();
+  let mut i = 0;
+  while i < parts.len() {
+    match parts[i] {
+      ExpressionPart::Operator("!") => {
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("Operator ! appears without a value after it."),
+            source: None,
+          });
+        };
+        let value = if is_false_json_value(b) { true } else { false };
+        new_parts.push(ExpressionPart::Value(Value::Bool(value)));
+        i += 2;
+      }
+      _ => {
+        new_parts.push(parts[i].clone());
+        i = i + 1;
+      }
+    }
+  }
+  Ok(new_parts)
+}
 fn process_plus_and_minus_operators<'a>(
   parts: Vec<ExpressionPart<'a>>,
 ) -> Result<Vec<ExpressionPart<'a>>> {
