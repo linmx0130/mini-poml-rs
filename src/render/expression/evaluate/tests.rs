@@ -16,7 +16,17 @@ fn test_evaluate_reference() {
   };
   let context = RenderContext::from(variables);
   assert_eq!(
-    evaluate_reference("my.home".as_bytes(), &context).unwrap(),
+    recognize_next_value(
+      &[
+        ExpressionToken::Ref(b"my"),
+        ExpressionToken::Dot,
+        ExpressionToken::Ref(b"home"),
+      ],
+      0,
+      &context
+    )
+    .unwrap()
+    .0,
     json!("127.0.0.1")
   );
   assert_eq!(
@@ -24,10 +34,33 @@ fn test_evaluate_reference() {
     json!(5)
   );
   assert_eq!(
-    evaluate_reference("my.car".as_bytes(), &context).unwrap(),
+    recognize_next_value(
+      &[
+        ExpressionToken::Ref(b"my"),
+        ExpressionToken::Dot,
+        ExpressionToken::Ref(b"car")
+      ],
+      0,
+      &context
+    )
+    .unwrap()
+    .0,
     Value::Null
   );
-  assert!(evaluate_reference("my.car.window".as_bytes(), &context).is_err());
+  assert!(
+    recognize_next_value(
+      &[
+        ExpressionToken::Ref(b"my"),
+        ExpressionToken::Dot,
+        ExpressionToken::Ref(b"car"),
+        ExpressionToken::Dot,
+        ExpressionToken::Ref(b"window")
+      ],
+      0,
+      &context
+    )
+    .is_err()
+  );
 }
 
 #[test]

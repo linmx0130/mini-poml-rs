@@ -33,6 +33,8 @@ pub enum ExpressionToken<'a> {
   Colon,
   // Exclamation mark !
   Exclamation,
+  // Dot
+  Dot,
 }
 
 pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>> {
@@ -46,10 +48,28 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         answer.push(ExpressionToken::Ref(&buf[pos..ref_end_pos]));
         pos = ref_end_pos;
       }
-      c if c.is_numeric() || c == '.' => {
+      c if c.is_numeric() => {
         let num_end_pos = seek_number_end(buf, pos)?;
         answer.push(ExpressionToken::Number(&buf[pos..num_end_pos]));
         pos = num_end_pos;
+      }
+      '.' => {
+        if pos + 1 >= buf.len() {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!("No content following dot operator."),
+            source: None,
+          });
+        }
+        let nc = u8_as_char(buf[pos + 1])?;
+        if nc.is_numeric() {
+          let num_end_pos = seek_number_end(buf, pos)?;
+          answer.push(ExpressionToken::Number(&buf[pos..num_end_pos]));
+          pos = num_end_pos;
+        } else {
+          answer.push(ExpressionToken::Dot);
+          pos += 1;
+        }
       }
       '"' | '\'' => {
         let string_end_pos = seek_string_end(buf, pos)?;
@@ -146,7 +166,7 @@ fn seek_ref_end(buf: &[u8], pos: usize) -> Result<usize> {
   let mut ref_end_pos = pos + 1;
   while ref_end_pos < buf.len() {
     let nc = u8_as_char(buf[ref_end_pos])?;
-    if nc.is_alphanumeric() || nc == '_' || nc == '.' {
+    if nc.is_alphanumeric() || nc == '_' {
       ref_end_pos += 1;
     } else {
       break;
@@ -222,12 +242,14 @@ mod tests {
     let expression = "(name.age + 1.5) * .2";
     let tokens = tokenize_expression(expression.as_bytes()).unwrap();
     assert_eq!(tokens[0], ExpressionToken::LeftParenthesis);
-    assert_eq!(tokens[1], ExpressionToken::Ref("name.age".as_bytes()));
-    assert_eq!(tokens[2], ExpressionToken::ArithOp("+".as_bytes()));
-    assert_eq!(tokens[3], ExpressionToken::Number("1.5".as_bytes()));
-    assert_eq!(tokens[4], ExpressionToken::RightParenthesis);
-    assert_eq!(tokens[5], ExpressionToken::ArithOp("*".as_bytes()));
-    assert_eq!(tokens[6], ExpressionToken::Number(".2".as_bytes()));
+    assert_eq!(tokens[1], ExpressionToken::Ref("name".as_bytes()));
+    assert_eq!(tokens[2], ExpressionToken::Dot);
+    assert_eq!(tokens[3], ExpressionToken::Ref("age".as_bytes()));
+    assert_eq!(tokens[4], ExpressionToken::ArithOp("+".as_bytes()));
+    assert_eq!(tokens[5], ExpressionToken::Number("1.5".as_bytes()));
+    assert_eq!(tokens[6], ExpressionToken::RightParenthesis);
+    assert_eq!(tokens[7], ExpressionToken::ArithOp("*".as_bytes()));
+    assert_eq!(tokens[8], ExpressionToken::Number(".2".as_bytes()));
   }
 
   #[test]
@@ -248,18 +270,27 @@ mod tests {
   fn test_tokenize_logic_expression() {
     let expression = "(name.age + 1.5) * (true && name.count === 1)";
     let tokens = tokenize_expression(expression.as_bytes()).unwrap();
-    assert_eq!(tokens[0], ExpressionToken::LeftParenthesis);
-    assert_eq!(tokens[1], ExpressionToken::Ref(b"name.age"));
-    assert_eq!(tokens[2], ExpressionToken::ArithOp(b"+"));
-    assert_eq!(tokens[3], ExpressionToken::Number(b"1.5"));
-    assert_eq!(tokens[4], ExpressionToken::RightParenthesis);
-    assert_eq!(tokens[5], ExpressionToken::ArithOp(b"*"));
-    assert_eq!(tokens[6], ExpressionToken::LeftParenthesis);
-    assert_eq!(tokens[7], ExpressionToken::Ref(b"true"));
-    assert_eq!(tokens[8], ExpressionToken::ArithOp(b"&&"));
-    assert_eq!(tokens[9], ExpressionToken::Ref(b"name.count"));
-    assert_eq!(tokens[10], ExpressionToken::ArithOp(b"==="));
-    assert_eq!(tokens[11], ExpressionToken::Number(b"1"));
-    assert_eq!(tokens[12], ExpressionToken::RightParenthesis);
+    assert_eq!(
+      tokens,
+      [
+        ExpressionToken::LeftParenthesis,
+        ExpressionToken::Ref(b"name"),
+        ExpressionToken::Dot,
+        ExpressionToken::Ref(b"age"),
+        ExpressionToken::ArithOp(b"+"),
+        ExpressionToken::Number(b"1.5"),
+        ExpressionToken::RightParenthesis,
+        ExpressionToken::ArithOp(b"*"),
+        ExpressionToken::LeftParenthesis,
+        ExpressionToken::Ref(b"true"),
+        ExpressionToken::ArithOp(b"&&"),
+        ExpressionToken::Ref(b"name"),
+        ExpressionToken::Dot,
+        ExpressionToken::Ref(b"count"),
+        ExpressionToken::ArithOp(b"==="),
+        ExpressionToken::Number(b"1"),
+        ExpressionToken::RightParenthesis
+      ]
+    );
   }
 }

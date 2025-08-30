@@ -490,12 +490,69 @@ fn recognize_next_value(
   pos: usize,
   context: &RenderContext,
 ) -> Result<(Value, usize)> {
+  let mut pos = pos;
   while pos < tokens.len() {
     let cur = &tokens[pos];
     match cur {
       ExpressionToken::Ref(refc) => {
         let value = evaluate_reference(refc, context)?;
-        return Ok((value, pos + 1));
+        let mut value_ref = &value;
+        let null_value = Value::Null;
+        let mut recognized_name = String::from_utf8(refc.to_vec()).unwrap();
+        pos += 1;
+        while pos < tokens.len() {
+          match tokens[pos] {
+            ExpressionToken::Dot => {
+              let Some(ExpressionToken::Ref(key_bytes)) = tokens.get(pos + 1) else {
+                return Err(Error {
+                  kind: ErrorKind::EvaluatorError,
+                  message: format!("No reference found after dot."),
+                  source: None,
+                });
+              };
+
+              let key_name = str::from_utf8(key_bytes).unwrap();
+              recognized_name = recognized_name + "." + key_name;
+
+              match value_ref {
+                Value::Null => {
+                  return Err(Error {
+                    kind: ErrorKind::EvaluatorError,
+                    message: format!(
+                      "Tried to access field `{}` on undefined or null variable `{}`.",
+                      key_name, recognized_name
+                    ),
+                    source: None,
+                  });
+                }
+
+                Value::Object(obj) => match obj.get(key_name) {
+                  Some(field_ref) => {
+                    value_ref = field_ref;
+                  }
+                  None => {
+                    value_ref = &null_value;
+                  }
+                },
+
+                _ => {
+                  return Err(Error {
+                    kind: ErrorKind::EvaluatorError,
+                    message: format!(
+                      "Variable `{}` is not an object and `{}` is not available on it",
+                      recognized_name, key_name
+                    ),
+                    source: None,
+                  });
+                }
+              }
+              pos += 2;
+            }
+
+            _ => break,
+          }
+        }
+        return Ok((value_ref.to_owned(), pos));
       }
       ExpressionToken::Number(numc) => {
         let value = evaluate_number(numc)?;
@@ -541,53 +598,10 @@ fn evaluate_reference(refc: &[u8], context: &RenderContext) -> Result<Value> {
       });
     }
   };
-  let mut parts = refs.split('.');
-  let first_part = parts.next().unwrap();
-  let null_value = Value::Null;
-  let mut value_ref = match context.get_value(first_part) {
-    Some(ref r) => r,
-    None => &null_value,
-  };
-  let mut recognized_name = first_part.to_owned();
-
-  while let Some(key_name) = parts.next() {
-    match value_ref {
-      Value::Null => {
-        return Err(Error {
-          kind: ErrorKind::EvaluatorError,
-          message: format!(
-            "Tried to access field `{}` on undefined or null variable `{}`.",
-            key_name, recognized_name
-          ),
-          source: None,
-        });
-      }
-
-      Value::Object(obj) => match obj.get(key_name) {
-        Some(field_ref) => {
-          value_ref = field_ref;
-        }
-        None => {
-          value_ref = &null_value;
-        }
-      },
-
-      _ => {
-        return Err(Error {
-          kind: ErrorKind::EvaluatorError,
-          message: format!(
-            "Variable `{}` is not an object and `{}` is not available on it",
-            recognized_name, key_name
-          ),
-          source: None,
-        });
-      }
-    }
-    recognized_name += ".";
-    recognized_name += key_name;
+  match context.get_value(refs) {
+    Some(r) => Ok(r.clone()),
+    None => Ok(Value::Null),
   }
-
-  return Ok(value_ref.clone());
 }
 
 fn evaluate_number(numc: &[u8]) -> Result<Value> {
