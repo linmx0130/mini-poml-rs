@@ -549,6 +549,63 @@ fn recognize_next_value(
               pos += 2;
             }
 
+            ExpressionToken::LeftBracket => {
+              let (index_value, new_pos) = evaluate_expression_value(tokens, pos + 1, context)?;
+              if tokens[new_pos] != ExpressionToken::RightBracket {
+                return Err(Error {
+                  kind: ErrorKind::EvaluatorError,
+                  message: format!("Indexing is not finished with right bracket"),
+                  source: None,
+                });
+              };
+              pos = new_pos + 1;
+              match index_value {
+                Value::Number(index_num) => {
+                  let Some(index_int) = index_num.as_u64() else {
+                    return Err(Error {
+                      kind: ErrorKind::EvaluatorError,
+                      message: format!(
+                        "Number index should be an unsiged integer, found {:?}",
+                        index_num
+                      ),
+                      source: None,
+                    });
+                  };
+                  match value_ref {
+                    Value::Array(arr) => {
+                      let Some(v_ref) = arr.get(index_int as usize) else {
+                        return Err(Error {
+                          kind: ErrorKind::EvaluatorError,
+                          message: format!(
+                            "Out of bound: index {}, array length: {}",
+                            index_int,
+                            arr.len()
+                          ),
+                          source: None,
+                        });
+                      };
+                      value_ref = v_ref;
+                    }
+                    _ => {
+                      return Err(Error {
+                        kind: ErrorKind::EvaluatorError,
+                        message: format!("Number index can only be applied on array."),
+                        source: None,
+                      });
+                    }
+                  }
+                }
+                // TODO: support string indexing for object
+                _ => {
+                  return Err(Error {
+                    kind: ErrorKind::EvaluatorError,
+                    message: format!("Invalid index type."),
+                    source: None,
+                  });
+                }
+              }
+            }
+
             _ => break,
           }
         }

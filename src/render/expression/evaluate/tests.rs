@@ -64,6 +64,119 @@ fn test_evaluate_reference() {
 }
 
 #[test]
+fn test_evaluate_array_indexing() {
+  let Value::Object(variables) = json!({
+      "arr": [1, 2, 3],
+      "idx": 0,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+
+  assert_eq!(
+    recognize_next_value(
+      &[
+        ExpressionToken::Ref(b"arr"),
+        ExpressionToken::LeftBracket,
+        ExpressionToken::Ref(b"idx"),
+        ExpressionToken::RightBracket,
+      ],
+      0,
+      &context
+    )
+    .unwrap()
+    .0,
+    json!(1)
+  );
+
+  assert_eq!(
+    recognize_next_value(
+      &[
+        ExpressionToken::Ref(b"arr"),
+        ExpressionToken::LeftBracket,
+        ExpressionToken::Ref(b"idx"),
+        ExpressionToken::ArithOp(b"+"),
+        ExpressionToken::Number(b"2"),
+        ExpressionToken::RightBracket,
+      ],
+      0,
+      &context
+    )
+    .unwrap()
+    .0,
+    json!(3)
+  );
+
+  assert!(
+    recognize_next_value(
+      &[
+        ExpressionToken::Ref(b"arr"),
+        ExpressionToken::LeftBracket,
+        ExpressionToken::Ref(b"idx"),
+        ExpressionToken::ArithOp(b"+"),
+        ExpressionToken::Number(b"3"),
+        ExpressionToken::RightBracket,
+      ],
+      0,
+      &context
+    )
+    .is_err()
+  );
+}
+
+#[test]
+fn test_evaluate_array_indexing_with_dot_access() {
+  let Value::Object(variables) = json!({
+      "users": [{"name": "a", "id": 1}, {"name": "b", "id": 2}],
+      "idx": 0,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+
+  assert_eq!(
+    recognize_next_value(
+      &[
+        ExpressionToken::Ref(b"users"),
+        ExpressionToken::LeftBracket,
+        ExpressionToken::Ref(b"idx"),
+        ExpressionToken::RightBracket,
+        ExpressionToken::Dot,
+        ExpressionToken::Ref(b"name")
+      ],
+      0,
+      &context
+    )
+    .unwrap()
+    .0,
+    json!("a")
+  );
+
+  assert_eq!(
+    recognize_next_value(
+      &[
+        ExpressionToken::Ref(b"users"),
+        ExpressionToken::LeftBracket,
+        ExpressionToken::Ref(b"users"),
+        ExpressionToken::LeftBracket,
+        ExpressionToken::Ref(b"idx"),
+        ExpressionToken::RightBracket,
+        ExpressionToken::Dot,
+        ExpressionToken::Ref(b"id"),
+        ExpressionToken::RightBracket,
+        ExpressionToken::Dot,
+        ExpressionToken::Ref(b"name"),
+      ],
+      0,
+      &context
+    )
+    .unwrap()
+    .0,
+    json!("b")
+  );
+}
+
+#[test]
 fn test_evaluate_numbers() {
   assert_eq!(evaluate_number("123".as_bytes()).unwrap(), json!(123));
   assert_eq!(evaluate_number("0.55".as_bytes()).unwrap(), json!(0.55));
