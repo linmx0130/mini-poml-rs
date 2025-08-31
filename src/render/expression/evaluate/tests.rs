@@ -177,6 +177,56 @@ fn test_evaluate_array_indexing_with_dot_access() {
 }
 
 #[test]
+fn test_evaluate_object_indexing_access() {
+  let Value::Object(variables) = json!({
+      "users": [{"name": "a", "id": 1}, {"name": "b", "id": 2}],
+      "idx": 0,
+      "ids": "id"
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+
+  assert_eq!(
+    recognize_next_value(
+      &[
+        ExpressionToken::Ref(b"users"),
+        ExpressionToken::LeftBracket,
+        ExpressionToken::Ref(b"idx"),
+        ExpressionToken::RightBracket,
+        ExpressionToken::LeftBracket,
+        ExpressionToken::String(b"\"name\""),
+        ExpressionToken::RightBracket,
+      ],
+      0,
+      &context
+    )
+    .unwrap()
+    .0,
+    json!("a")
+  );
+
+  assert_eq!(
+    recognize_next_value(
+      &[
+        ExpressionToken::Ref(b"users"),
+        ExpressionToken::LeftBracket,
+        ExpressionToken::Ref(b"idx"),
+        ExpressionToken::RightBracket,
+        ExpressionToken::LeftBracket,
+        ExpressionToken::Ref(b"ids"),
+        ExpressionToken::RightBracket,
+      ],
+      0,
+      &context
+    )
+    .unwrap()
+    .0,
+    json!(1)
+  );
+}
+
+#[test]
 fn test_evaluate_numbers() {
   assert_eq!(evaluate_number("123".as_bytes()).unwrap(), json!(123));
   assert_eq!(evaluate_number("0.55".as_bytes()).unwrap(), json!(0.55));

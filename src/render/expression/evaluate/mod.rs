@@ -585,6 +585,7 @@ fn recognize_next_value(
                         });
                       };
                       value_ref = v_ref;
+                      recognized_name = recognized_name + &format!("[{}]", index_num);
                     }
                     _ => {
                       return Err(Error {
@@ -595,7 +596,38 @@ fn recognize_next_value(
                     }
                   }
                 }
-                // TODO: support string indexing for object
+                Value::String(index_str) => {
+                  match value_ref {
+                    Value::Null => {
+                      return Err(Error {
+                        kind: ErrorKind::EvaluatorError,
+                        message: format!(
+                          "Tried to access field `{}` on undefined or null variable `{}`",
+                          index_str, recognized_name
+                        ),
+                        source: None,
+                      });
+                    }
+
+                    Value::Object(obj) => match obj.get(&index_str) {
+                      Some(field_ref) => {
+                        value_ref = field_ref;
+                      }
+                      None => {
+                        value_ref = &null_value;
+                      }
+                    },
+
+                    _ => {
+                      return Err(Error {
+                        kind: ErrorKind::EvaluatorError,
+                        message: format!("String index can only be applied on object."),
+                        source: None,
+                      });
+                    }
+                  };
+                  recognized_name = recognized_name + &format!("[\"{}\"]", index_str);
+                }
                 _ => {
                   return Err(Error {
                     kind: ErrorKind::EvaluatorError,
