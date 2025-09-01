@@ -30,6 +30,7 @@ impl TagRenderer for MarkdownTagRenderer {
       "code" => Ok(self.render_code_tag(tag, attribute_values, source_buf)),
       "h" => Ok(self.render_header_tag(children_result)),
       "section" => Ok(self.render_section_tag(children_result)),
+      "cp" => self.render_captioned_paragraph_tag(attribute_values, children_result),
       "role" => Ok(self.render_intention_block_tag("Role", children_result)),
       "task" => Ok(self.render_intention_block_tag("Task", children_result)),
       "output-format" => Ok(self.render_intention_block_tag("Output Format", children_result)),
@@ -149,6 +150,30 @@ impl MarkdownTagRenderer {
       }
     }
     answer
+  }
+
+  fn render_captioned_paragraph_tag(
+    &self,
+    attribute_values: &Vec<(String, String)>,
+    children_result: Vec<String>,
+  ) -> Result<String> {
+    let Some((_, caption)) = attribute_values.iter().find(|v| v.0 == "caption") else {
+      return Err(Error {
+        kind: ErrorKind::RendererError,
+        message: format!("Missing `caption` attribute for the <cp> tag."),
+        source: None,
+      });
+    };
+    let mut answer = format!("# {}\n\n", caption);
+
+    for child_text in children_result.iter() {
+      if child_text.starts_with("#") {
+        answer += &format!("#{}", child_text);
+      } else {
+        answer += child_text;
+      }
+    }
+    Ok(answer)
   }
 
   fn render_item_tag(&self, children_result: Vec<String>) -> String {

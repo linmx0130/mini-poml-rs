@@ -397,3 +397,21 @@ fn test_nested_list_render() {
   assert!(output.contains("-  1. (1, a)\n\t2. (1, b)\n\t3. (1, c)"));
   assert!(output.contains("-  1. (2, a)\n\t2. (2, b)\n\t3. (2, c)"));
 }
+
+#[test]
+fn test_captioned_paragraph() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<cp caption="Constraints">
+  <h>Sub-list</h>
+  <list>
+    <item>Do not exceed 1000 tokens.</item>
+    <item>Please use simple words.</item>
+  </list>
+</cp>"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("# Constraints\n\n"));
+  assert!(output.contains("## Sub-list\n\n"));
+  assert!(output.contains("\n - Do not exceed 1000 tokens."));
+}
