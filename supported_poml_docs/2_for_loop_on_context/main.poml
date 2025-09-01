@@ -1,0 +1,4 @@
+<poml>
+  <h>Users</h>
+  <p for="user in users"> {{ user.id+1 }}: {{ user.name }} </p>
+</poml>

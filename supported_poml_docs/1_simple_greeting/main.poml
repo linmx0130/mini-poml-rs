@@ -1,0 +1,4 @@
+<poml>
+  <let name="greeting">Hello, world!</let>
+  <p>{{greeting}}</p>
+</poml>
