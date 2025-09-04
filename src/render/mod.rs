@@ -12,7 +12,6 @@ pub(crate) mod utils;
 use crate::error::{Error, ErrorKind, Result};
 use crate::{PomlNode, PomlParser, PomlTagNode};
 use serde_json::{Value, json};
-use std::io::Read;
 
 pub struct Renderer<'a, T>
 where
@@ -174,27 +173,7 @@ where
 
     let src_value = match attribute_values.iter().find(|v| v.0 == "src") {
       Some((_, src)) => {
-        let mut file_content_buf = String::new();
-        let mut file = match std::fs::File::open(src) {
-          Ok(f) => f,
-          Err(e) => {
-            return Err(Error {
-              kind: ErrorKind::RendererError,
-              message: format!("Failed to open file of variable assignment: {}", src),
-              source: Some(Box::new(e)),
-            });
-          }
-        };
-        match file.read_to_string(&mut file_content_buf) {
-          Ok(_) => {}
-          Err(e) => {
-            return Err(Error {
-              kind: ErrorKind::RendererError,
-              message: format!("Failed to read file of varaible assignment: {}", src),
-              source: Some(Box::new(e)),
-            });
-          }
-        };
+        let file_content_buf = self.context.read_file_content(src)?;
         Some(file_content_buf)
       }
       None => None,
@@ -209,6 +188,17 @@ where
     if attribute_value.is_some() {
       value_count += 1;
     }
+
+    let type_value = match attribute_values.iter().find(|v| v.0 == "type") {
+      Some((_, v)) => v,
+      None => {
+        if src_value.is_some() {
+          "object"
+        } else {
+          "string"
+        }
+      }
+    };
 
     let value: String = match value_count {
       0 => {
@@ -248,11 +238,6 @@ where
         self.context.set_value(key, value.clone());
       }
       return Ok("".to_owned());
-    };
-
-    let type_value = match attribute_values.iter().find(|v| v.0 == "type") {
-      Some((_, v)) => v,
-      None => "string",
     };
 
     if type_value != "string" {
@@ -310,6 +295,20 @@ where
           let bool_val = !utils::is_false_value(&value);
           self.context.set_value(name, Value::Bool(bool_val));
         }
+        "object" => {
+          match serde_json::from_str(&value) {
+            Ok(Value::Object(value_obj)) => {
+              self.context.set_value(name, Value::Object(value_obj));
+            }
+            _ => {
+              return Err(Error {
+                kind: ErrorKind::RendererError,
+                message: format!("Failed to parse value to object: {}", value),
+                source: None,
+              });
+            }
+          };
+        }
         _ => {
           return Err(Error {
             kind: ErrorKind::RendererError,
@@ -325,7 +324,6 @@ where
   }
 
   fn process_include_node(&mut self, attribute_values: Vec<(String, String)>) -> Result<String> {
-    use std::io::Read;
     let Some((_, src)) = attribute_values.iter().find(|v| v.0 == "src") else {
       return Err(Error {
         kind: ErrorKind::RendererError,
@@ -334,36 +332,10 @@ where
       });
     };
 
-    let mut file_content_buf = String::new();
-    let content = if self.context.file_mapping.contains_key(src) {
-      self.context.file_mapping.get(src).unwrap()
-    } else {
-      let mut file = match std::fs::File::open(src) {
-        Ok(f) => f,
-        Err(e) => {
-          return Err(Error {
-            kind: ErrorKind::RendererError,
-            message: format!("Failed to open file included: {}", src),
-            source: Some(Box::new(e)),
-          });
-        }
-      };
-      match file.read_to_string(&mut file_content_buf) {
-        Ok(_) => {}
-        Err(e) => {
-          return Err(Error {
-            kind: ErrorKind::RendererError,
-            message: format!("Failed to read file included: {}", src),
-            source: Some(Box::new(e)),
-          });
-        }
-      };
-      &file_content_buf
-    };
-
+    let file_content_buf = self.context.read_file_content(src)?;
     let new_context = self.context.clone();
     let new_tag_renderer = self.tag_renderer.clone();
-    let parser = PomlParser::from_str(&content);
+    let parser = PomlParser::from_str(&file_content_buf);
     let mut renderer = Renderer {
       context: new_context,
       tag_renderer: new_tag_renderer,

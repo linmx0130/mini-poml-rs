@@ -4,9 +4,10 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-use crate::error::Result;
+use crate::error::{Error, ErrorKind, Result};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
+use std::io::Read;
 
 /**
  * Contains the variables in the current scope.
@@ -68,6 +69,35 @@ impl RenderContext {
    */
   pub fn evaluate(&self, expression: &str) -> Result<Value> {
     super::expression::evaluate_expression(expression, self)
+  }
+
+  pub fn read_file_content(&self, filename: &str) -> Result<String> {
+    if self.file_mapping.contains_key(filename) {
+      Ok(self.file_mapping.get(filename).unwrap().to_string())
+    } else {
+      let mut file_content_buf = String::new();
+      let mut file = match std::fs::File::open(filename) {
+        Ok(f) => f,
+        Err(e) => {
+          return Err(Error {
+            kind: ErrorKind::RendererError,
+            message: format!("Failed to open file included: {}", filename),
+            source: Some(Box::new(e)),
+          });
+        }
+      };
+      match file.read_to_string(&mut file_content_buf) {
+        Ok(_) => {}
+        Err(e) => {
+          return Err(Error {
+            kind: ErrorKind::RendererError,
+            message: format!("Failed to read file included: {}", filename),
+            source: Some(Box::new(e)),
+          });
+        }
+      };
+      Ok(file_content_buf)
+    }
   }
 }
 

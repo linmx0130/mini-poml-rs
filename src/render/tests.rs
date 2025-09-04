@@ -415,3 +415,43 @@ fn test_captioned_paragraph() {
   assert!(output.contains("## Sub-list\n\n"));
   assert!(output.contains("\n - Do not exceed 1000 tokens."));
 }
+
+#[test]
+fn test_let_src_include() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <let name="foo" src="foo.json" />
+  <p>{{ foo.bar }} </p>
+</poml>
+"#;
+  let foo_doc = r#"{"bar":"fubar"}"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  renderer
+    .context
+    .file_mapping
+    .insert("foo.json".to_owned(), foo_doc.to_owned());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("fubar"));
+}
+
+#[test]
+fn test_let_object() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <let name="foo" type="object">
+    {"bar":"fubar"}
+  </let>
+  <p>{{ foo.bar }} </p>
+</poml>
+"#;
+  let foo_doc = r#"{"bar":"fubar"}"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  renderer
+    .context
+    .file_mapping
+    .insert("foo.json".to_owned(), foo_doc.to_owned());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("fubar"));
+}
