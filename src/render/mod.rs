@@ -12,6 +12,7 @@ pub(crate) mod utils;
 use crate::error::{Error, ErrorKind, Result};
 use crate::{PomlNode, PomlParser, PomlTagNode};
 use serde_json::{Value, json};
+use std::io::Read;
 
 pub struct Renderer<'a, T>
 where
@@ -153,14 +154,10 @@ where
   ) -> Result<String> {
     /* TODO
      * 1. Support array and object types
-     * 2. Support the case where name is missing
      */
-    let Some((_, name)) = attribute_values.iter().find(|v| v.0 == "name") else {
-      return Err(Error {
-        kind: ErrorKind::RendererError,
-        message: format!("`name` attribute not found on <let>."),
-        source: None,
-      });
+    let name = match attribute_values.iter().find(|v| v.0 == "name") {
+      Some((_, value)) => Some(value),
+      None => None,
     };
 
     // Check whether more than one source of value is provided
@@ -177,7 +174,6 @@ where
 
     let src_value = match attribute_values.iter().find(|v| v.0 == "src") {
       Some((_, src)) => {
-        use std::io::Read;
         let mut file_content_buf = String::new();
         let mut file = match std::fs::File::open(src) {
           Ok(f) => f,
@@ -199,16 +195,7 @@ where
             });
           }
         };
-        match serde_json::from_str(&file_content_buf) {
-          Ok(v) => Some(v),
-          Err(e) => {
-            return Err(Error {
-              kind: ErrorKind::RendererError,
-              message: format!("Failed to decode json file of varaible assignment: {}", src),
-              source: Some(Box::new(e)),
-            });
-          }
-        }
+        Some(file_content_buf)
       }
       None => None,
     };
@@ -227,7 +214,7 @@ where
       0 => {
         return Err(Error {
           kind: ErrorKind::RendererError,
-          message: format!("No value is provided for the <let> node to assign {}", name),
+          message: format!("No value is provided for the <let> node"),
           source: None,
         });
       }
@@ -243,13 +230,24 @@ where
       _ => {
         return Err(Error {
           kind: ErrorKind::RendererError,
-          message: format!(
-            "More than one value is provided for the <let> node to assign {}",
-            name
-          ),
+          message: format!("More than one value is provided for the <let> node."),
           source: None,
         });
       }
+    };
+
+    let Some(name) = name else {
+      let Ok(Value::Object(value_obj)) = serde_json::from_str(&value) else {
+        return Err(Error {
+          kind: ErrorKind::RendererError,
+          message: format!("Only object value can be used to set context variables"),
+          source: None,
+        });
+      };
+      for (key, value) in value_obj.iter() {
+        self.context.set_value(key, value.clone());
+      }
+      return Ok("".to_owned());
     };
 
     let type_value = match attribute_values.iter().find(|v| v.0 == "type") {
