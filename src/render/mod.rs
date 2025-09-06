@@ -151,9 +151,6 @@ where
     attribute_values: Vec<(String, String)>,
     children_result: Vec<String>,
   ) -> Result<String> {
-    /* TODO
-     * 1. Support array and object types
-     */
     let name = match attribute_values.iter().find(|v| v.0 == "name") {
       Some((_, value)) => Some(value),
       None => None,
@@ -294,6 +291,20 @@ where
         "boolean" => {
           let bool_val = !utils::is_false_value(&value);
           self.context.set_value(name, Value::Bool(bool_val));
+        }
+        "array" => {
+          match serde_json::from_str(&value) {
+            Ok(Value::Array(value_arr)) => {
+              self.context.set_value(name, Value::Array(value_arr));
+            }
+            _ => {
+              return Err(Error {
+                kind: ErrorKind::RendererError,
+                message: format!("Failed to parse value to array: {}", value),
+                source: None,
+              });
+            }
+          };
         }
         "object" => {
           match serde_json::from_str(&value) {

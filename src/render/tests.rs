@@ -446,12 +446,25 @@ fn test_let_object() {
   <p>{{ foo.bar }} </p>
 </poml>
 "#;
-  let foo_doc = r#"{"bar":"fubar"}"#;
   let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
-  renderer
-    .context
-    .file_mapping
-    .insert("foo.json".to_owned(), foo_doc.to_owned());
   let output = renderer.render().unwrap();
   assert!(output.contains("fubar"));
+}
+
+#[test]
+fn test_let_array() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <let name="foo" type="array">
+    [1, "foobar", true]
+  </let>
+  <p for="v in foo"> {{ v }} </p>
+</poml>
+"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("1"));
+  assert!(output.contains("foobar"));
+  assert!(output.contains("true"));
 }
