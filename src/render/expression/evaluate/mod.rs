@@ -120,9 +120,10 @@ fn evaluate_expression_value(
 
 fn process_and_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<ExpressionPart<'a>>> {
   let mut contain_and = false;
-  for i in 0..parts.len() {
-    if parts[i] == ExpressionPart::Operator("&&") {
+  for part in &parts {
+    if *part == ExpressionPart::Operator("&&") {
       contain_and = true;
+      break;
     }
   }
 
@@ -171,9 +172,10 @@ fn process_and_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<Expre
 
 fn process_or_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<ExpressionPart<'a>>> {
   let mut contain_or = false;
-  for i in 0..parts.len() {
-    if parts[i] == ExpressionPart::Operator("||") {
+  for part in &parts {
+    if *part == ExpressionPart::Operator("||") {
       contain_or = true;
+      break;
     }
   }
 
@@ -222,8 +224,8 @@ fn process_or_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<Expres
 
 fn process_not_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<ExpressionPart<'a>>> {
   let mut contain_not = false;
-  for i in 0..parts.len() {
-    if parts[i] == ExpressionPart::Operator("!") {
+  for part in &parts {
+    if *part == ExpressionPart::Operator("!") {
       contain_not = true;
     }
   }
@@ -494,7 +496,7 @@ fn recognize_next_value(
   context: &RenderContext,
 ) -> Result<(Value, usize)> {
   let mut pos = pos;
-  while pos < tokens.len() {
+  if pos < tokens.len() {
     let cur = &tokens[pos];
     match cur {
       ExpressionToken::Ref(refc) => {

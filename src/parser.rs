@@ -34,11 +34,11 @@ impl<'a> PomlParser<'a> {
     let mut line_end_pos = Vec::new();
     let mut first_not_space = None;
     {
-      for pos in 0..buf.len() {
-        if first_not_space.is_none() && !buf[pos].is_ascii_whitespace() {
+      for (pos, item) in buf.iter().enumerate() {
+        if first_not_space.is_none() && !item.is_ascii_whitespace() {
           first_not_space = Some(pos);
         }
-        if buf[pos] == b'\n' {
+        if *item == b'\n' {
           line_end_pos.push(pos);
         }
       }
@@ -349,17 +349,14 @@ impl<'a> PomlParser<'a> {
 
   pub(crate) fn parse_as_elements(&mut self) -> Result<Vec<PomlElement>> {
     let mut elements = Vec::new();
-    loop {
-      match self.next_element()? {
-        Some(e) => elements.push(e),
-        None => break,
-      }
+    while let Some(e) = self.next_element()? {
+      elements.push(e);
     }
     Ok(elements)
   }
 
   fn next_element(&mut self) -> Result<Option<PomlElement>> {
-    while self.pos < self.buf.len() {
+    if self.pos < self.buf.len() {
       let c = char::from(self.buf[self.pos]);
       match c {
         c if c.is_ascii_whitespace() => {
