@@ -1,9 +1,12 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 pub fn is_false_value(value: &str) -> bool {
   let val = value.trim();
-  match val {
-    "0" | "false" | "" | "null" | "NaN" => true,
-    _ => false,
-  }
+  matches!(val, "0" | "false" | "" | "null" | "NaN")
 }
 
 pub fn buf_match_str(buf: &[u8], pos: usize, pattern: &str) -> bool {

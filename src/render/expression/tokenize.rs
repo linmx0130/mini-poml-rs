@@ -57,7 +57,7 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         if pos + 1 >= buf.len() {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("No content following dot operator."),
+            message: "No content following dot operator.".to_string(),
             source: None,
           });
         }
@@ -87,7 +87,7 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         } else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator has not been supported!"),
+            message: "Operator has not been supported!".to_string(),
             source: None,
           });
         }
@@ -99,7 +99,7 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         } else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator has not been supported!"),
+            message: "Operator has not been supported!".to_string(),
             source: None,
           });
         }
@@ -146,7 +146,7 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
       _ => {
         return Err(Error {
           kind: ErrorKind::EvaluatorError,
-          message: format!("Invalid char encoutered in expression"),
+          message: "Invalid char encoutered in expression".to_string(),
           source: None,
         });
       }
@@ -190,7 +190,7 @@ fn seek_number_end(buf: &[u8], pos: usize) -> Result<usize> {
       } else {
         return Err(Error {
           kind: ErrorKind::EvaluatorError,
-          message: format!("Multiple dots found in a number literal."),
+          message: "Multiple dots found in a number literal.".to_string(),
           source: None,
         });
       }
@@ -210,15 +210,15 @@ fn seek_string_end(buf: &[u8], pos: usize) -> Result<usize> {
       return Ok(cur + 1);
     }
     if buf[cur] == b'\\' {
-      cur = cur + 2;
+      cur += 2;
     } else {
-      cur = cur + 1;
+      cur += 1;
     }
   }
 
   Err(Error {
     kind: ErrorKind::EvaluatorError,
-    message: format!("String literal doesn't end in the expression."),
+    message: "String literal doesn't end in the expression.".to_string(),
     source: None,
   })
 }
@@ -227,7 +227,7 @@ fn u8_as_char(v: u8) -> Result<char> {
   let Some(c) = char::from_u32(v.into()) else {
     return Err(Error {
       kind: ErrorKind::EvaluatorError,
-      message: format!("Invalid char encoutered in expression"),
+      message: "Invalid char encoutered in expression".to_string(),
       source: None,
     });
   };

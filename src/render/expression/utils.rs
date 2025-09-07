@@ -14,7 +14,7 @@ pub fn is_false_json_value(value: &Value) -> bool {
       Some(v) => v == 0.0,
       None => true,
     },
-    Value::String(s) => s.len() == 0,
+    Value::String(s) => s.is_empty(),
     _ => false,
   }
 }

@@ -16,15 +16,15 @@ pub fn evaluate_expression_tokens(
 ) -> Result<Value> {
   let (value, next_pos) = evaluate_expression_value(tokens, 0, context)?;
 
-  return if next_pos == tokens.len() {
+  if next_pos == tokens.len() {
     Ok(value)
   } else {
     Err(Error {
       kind: ErrorKind::EvaluatorError,
-      message: format!("Not implemented"),
+      message: "Not implemented".to_string(),
       source: None,
     })
-  };
+  }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -52,7 +52,7 @@ fn evaluate_expression_value(
         if new_pos >= tokens.len() || tokens[new_pos] != ExpressionToken::RightParenthesis {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Not paired right parenthesis for a left parenthesis"),
+            message: "Not paired right parenthesis for a left parenthesis".to_string(),
             source: None,
           });
         }
@@ -62,11 +62,11 @@ fn evaluate_expression_value(
       // Arith operator
       ExpressionToken::ArithOp(op_name_buf) => {
         let op_name = str::from_utf8(op_name_buf).unwrap();
-        pos = pos + 1;
+        pos += 1;
         parts.push(ExpressionPart::Operator(op_name))
       }
       ExpressionToken::Exclamation => {
-        pos = pos + 1;
+        pos += 1;
         parts.push(ExpressionPart::Operator("!"));
       }
       ExpressionToken::Ref(_) | ExpressionToken::Number(_) | ExpressionToken::String(_) => {
@@ -82,7 +82,7 @@ fn evaluate_expression_value(
       ExpressionToken::LeftCurly => {
         return Err(Error {
           kind: ErrorKind::EvaluatorError,
-          message: format!("Not implemented to recognize objects"),
+          message: "Not implemented to recognize objects".to_string(),
           source: None,
         });
       }
@@ -104,14 +104,14 @@ fn evaluate_expression_value(
   if parts.len() > 1 {
     return Err(Error {
       kind: ErrorKind::EvaluatorError,
-      message: format!("Some operators remained unprocessed!"),
+      message: "Some operators remained unprocessed!".to_string(),
       source: None,
     });
   }
   let Some(ExpressionPart::Value(ret_value)) = parts.pop() else {
     return Err(Error {
       kind: ErrorKind::EvaluatorError,
-      message: format!("No value found in the expression"),
+      message: "No value found in the expression".to_string(),
       source: None,
     });
   };
@@ -139,14 +139,14 @@ fn process_and_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<Expre
         let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator && appears without a value before it."),
+            message: "Operator && appears without a value before it.".to_string(),
             source: None,
           });
         };
         let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator && appears without a value after it."),
+            message: "Operator && appears without a value after it.".to_string(),
             source: None,
           });
         };
@@ -162,7 +162,7 @@ fn process_and_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<Expre
       }
       _ => {
         new_parts.push(parts[i].clone());
-        i = i + 1;
+        i += 1;
       }
     }
   }
@@ -190,14 +190,14 @@ fn process_or_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<Expres
         let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator || appears without a value before it."),
+            message: "Operator || appears without a value before it.".to_string(),
             source: None,
           });
         };
         let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator || appears without a value after it."),
+            message: "Operator || appears without a value after it.".to_string(),
             source: None,
           });
         };
@@ -213,7 +213,7 @@ fn process_or_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<Expres
       }
       _ => {
         new_parts.push(parts[i].clone());
-        i = i + 1;
+        i += 1;
       }
     }
   }
@@ -241,17 +241,17 @@ fn process_not_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<Expre
         let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator ! appears without a value after it."),
+            message: "Operator ! appears without a value after it.".to_string(),
             source: None,
           });
         };
-        let value = if is_false_json_value(b) { true } else { false };
+        let value = is_false_json_value(b);
         new_parts.push(ExpressionPart::Value(Value::Bool(value)));
         i += 2;
       }
       _ => {
         new_parts.push(parts[i].clone());
-        i = i + 1;
+        i += 1;
       }
     }
   }
@@ -261,9 +261,10 @@ fn process_plus_and_minus_operators<'a>(
   parts: Vec<ExpressionPart<'a>>,
 ) -> Result<Vec<ExpressionPart<'a>>> {
   let mut contain_plus_minus = false;
-  for i in 0..parts.len() {
-    if parts[i] == ExpressionPart::Operator("+") || parts[i] == ExpressionPart::Operator("-") {
+  for part in &parts {
+    if *part == ExpressionPart::Operator("+") || *part == ExpressionPart::Operator("-") {
       contain_plus_minus = true;
+      break;
     }
   }
 
@@ -280,14 +281,14 @@ fn process_plus_and_minus_operators<'a>(
         let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator + appears without a value before it."),
+            message: "Operator + appears without a value before it.".to_string(),
             source: None,
           });
         };
         let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator + appears without a value after it."),
+            message: "Operator + appears without a value after it.".to_string(),
             source: None,
           });
         };
@@ -299,14 +300,14 @@ fn process_plus_and_minus_operators<'a>(
         let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator - appears without a value before it."),
+            message: "Operator - appears without a value before it.".to_string(),
             source: None,
           });
         };
         let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator - appears without a value after it."),
+            message: "Operator - appears without a value after it.".to_string(),
             source: None,
           });
         };
@@ -316,7 +317,7 @@ fn process_plus_and_minus_operators<'a>(
       }
       _ => {
         new_parts.push(parts[i].clone());
-        i = i + 1;
+        i += 1;
       }
     }
   }
@@ -327,9 +328,10 @@ fn process_times_and_divide_operators<'a>(
   parts: Vec<ExpressionPart<'a>>,
 ) -> Result<Vec<ExpressionPart<'a>>> {
   let mut contain_times_divide = false;
-  for i in 0..parts.len() {
-    if parts[i] == ExpressionPart::Operator("*") || parts[i] == ExpressionPart::Operator("/") {
+  for part in &parts {
+    if *part == ExpressionPart::Operator("*") || *part == ExpressionPart::Operator("/") {
       contain_times_divide = true;
+      break;
     }
   }
 
@@ -346,14 +348,14 @@ fn process_times_and_divide_operators<'a>(
         let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator * appears without a value before it."),
+            message: "Operator * appears without a value before it.".to_string(),
             source: None,
           });
         };
         let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator * appears without a value after it."),
+            message: "Operator * appears without a value after it.".to_string(),
             source: None,
           });
         };
@@ -365,14 +367,14 @@ fn process_times_and_divide_operators<'a>(
         let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator / appears without a value before it."),
+            message: "Operator / appears without a value before it.".to_string(),
             source: None,
           });
         };
         let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator - appears without a value after it."),
+            message: "Operator - appears without a value after it.".to_string(),
             source: None,
           });
         };
@@ -382,7 +384,7 @@ fn process_times_and_divide_operators<'a>(
       }
       _ => {
         new_parts.push(parts[i].clone());
-        i = i + 1;
+        i += 1;
       }
     }
   }
@@ -393,9 +395,10 @@ fn process_equality_operators<'a>(
   parts: Vec<ExpressionPart<'a>>,
 ) -> Result<Vec<ExpressionPart<'a>>> {
   let mut contain_equals = false;
-  for i in 0..parts.len() {
-    if parts[i] == ExpressionPart::Operator("===") {
+  for part in &parts {
+    if *part == ExpressionPart::Operator("===") {
       contain_equals = true;
+      break;
     }
   }
 
@@ -412,14 +415,14 @@ fn process_equality_operators<'a>(
         let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator === appears without a value before it."),
+            message: "Operator === appears without a value before it.".to_string(),
             source: None,
           });
         };
         let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
-            message: format!("Operator === appears without a value after it."),
+            message: "Operator === appears without a value after it.".to_string(),
             source: None,
           });
         };
@@ -429,7 +432,7 @@ fn process_equality_operators<'a>(
       }
       _ => {
         new_parts.push(parts[i].clone());
-        i = i + 1;
+        i += 1;
       }
     }
   }
@@ -446,7 +449,7 @@ fn recognize_next_array(
   let mut array_finished = false;
   while pos < tokens.len() {
     if tokens[pos] == ExpressionToken::RightBracket {
-      pos = pos + 1;
+      pos += 1;
       array_finished = true;
       break;
     } else {
@@ -474,15 +477,15 @@ fn recognize_next_array(
       };
     }
   }
-  return if !array_finished {
+  if !array_finished {
     Err(Error {
       kind: ErrorKind::EvaluatorError,
-      message: format!("Array value has not finished in the expression"),
+      message: "Array value has not finished in the expression".to_string(),
       source: None,
     })
   } else {
     Ok((Value::Array(array_value), pos))
-  };
+  }
 }
 
 fn recognize_next_value(
@@ -506,7 +509,7 @@ fn recognize_next_value(
               let Some(ExpressionToken::Ref(key_bytes)) = tokens.get(pos + 1) else {
                 return Err(Error {
                   kind: ErrorKind::EvaluatorError,
-                  message: format!("No reference found after dot."),
+                  message: "No reference found after dot.".to_string(),
                   source: None,
                 });
               };
@@ -519,8 +522,7 @@ fn recognize_next_value(
                   return Err(Error {
                     kind: ErrorKind::EvaluatorError,
                     message: format!(
-                      "Tried to access field `{}` on undefined or null variable `{}`.",
-                      key_name, recognized_name
+                      "Tried to access field `{key_name}` on undefined or null variable `{recognized_name}`."
                     ),
                     source: None,
                   });
@@ -539,8 +541,7 @@ fn recognize_next_value(
                   return Err(Error {
                     kind: ErrorKind::EvaluatorError,
                     message: format!(
-                      "Variable `{}` is not an object and `{}` is not available on it",
-                      recognized_name, key_name
+                      "Variable `{recognized_name}` is not an object and `{key_name}` is not available on it"
                     ),
                     source: None,
                   });
@@ -554,7 +555,7 @@ fn recognize_next_value(
               if tokens[new_pos] != ExpressionToken::RightBracket {
                 return Err(Error {
                   kind: ErrorKind::EvaluatorError,
-                  message: format!("Indexing is not finished with right bracket"),
+                  message: "Indexing is not finished with right bracket".to_string(),
                   source: None,
                 });
               };
@@ -565,8 +566,7 @@ fn recognize_next_value(
                     return Err(Error {
                       kind: ErrorKind::EvaluatorError,
                       message: format!(
-                        "Number index should be an unsiged integer, found {:?}",
-                        index_num
+                        "Number index should be an unsiged integer, found {index_num:?}"
                       ),
                       source: None,
                     });
@@ -585,12 +585,12 @@ fn recognize_next_value(
                         });
                       };
                       value_ref = v_ref;
-                      recognized_name = recognized_name + &format!("[{}]", index_num);
+                      recognized_name = recognized_name + &format!("[{index_num}]");
                     }
                     _ => {
                       return Err(Error {
                         kind: ErrorKind::EvaluatorError,
-                        message: format!("Number index can only be applied on array."),
+                        message: "Number index can only be applied on array.".to_string(),
                         source: None,
                       });
                     }
@@ -602,8 +602,7 @@ fn recognize_next_value(
                       return Err(Error {
                         kind: ErrorKind::EvaluatorError,
                         message: format!(
-                          "Tried to access field `{}` on undefined or null variable `{}`",
-                          index_str, recognized_name
+                          "Tried to access field `{index_str}` on undefined or null variable `{recognized_name}`"
                         ),
                         source: None,
                       });
@@ -621,17 +620,17 @@ fn recognize_next_value(
                     _ => {
                       return Err(Error {
                         kind: ErrorKind::EvaluatorError,
-                        message: format!("String index can only be applied on object."),
+                        message: "String index can only be applied on object.".to_string(),
                         source: None,
                       });
                     }
                   };
-                  recognized_name = recognized_name + &format!("[\"{}\"]", index_str);
+                  recognized_name = recognized_name + &format!("[\"{index_str}\"]");
                 }
                 _ => {
                   return Err(Error {
                     kind: ErrorKind::EvaluatorError,
-                    message: format!("Invalid index type."),
+                    message: "Invalid index type.".to_string(),
                     source: None,
                   });
                 }
@@ -654,17 +653,17 @@ fn recognize_next_value(
       _ => {
         return Err(Error {
           kind: ErrorKind::EvaluatorError,
-          message: format!("Expect a value token, but not found"),
+          message: "Expect a value token, but not found".to_string(),
           source: None,
         });
       }
     }
   }
-  return Err(Error {
+  Err(Error {
     kind: ErrorKind::EvaluatorError,
-    message: format!("Not implemented"),
+    message: "Not implemented".to_string(),
     source: None,
-  });
+  })
 }
 
 fn evaluate_reference(refc: &[u8], context: &RenderContext) -> Result<Value> {
@@ -682,7 +681,7 @@ fn evaluate_reference(refc: &[u8], context: &RenderContext) -> Result<Value> {
     Err(e) => {
       return Err(Error {
         kind: ErrorKind::EvaluatorError,
-        message: format!("String decode error"),
+        message: "String decode error".to_string(),
         source: Some(Box::new(e)),
       });
     }
@@ -700,7 +699,7 @@ fn evaluate_number(numc: &[u8]) -> Result<Value> {
     let Ok(val): std::result::Result<i64, _> = str::parse(nums) else {
       return Err(Error {
         kind: ErrorKind::EvaluatorError,
-        message: format!("Failed to parse number: {}", nums),
+        message: format!("Failed to parse number: {nums}"),
         source: None,
       });
     };
@@ -711,13 +710,11 @@ fn evaluate_number(numc: &[u8]) -> Result<Value> {
     let Ok(val): std::result::Result<f64, _> = str::parse(nums) else {
       return Err(Error {
         kind: ErrorKind::EvaluatorError,
-        message: format!("Failed to parse number: {}", nums),
+        message: format!("Failed to parse number: {nums}"),
         source: None,
       });
     };
-    Ok(Value::Number(
-      serde_json::Number::from_f64(val.into()).unwrap(),
-    ))
+    Ok(Value::Number(serde_json::Number::from_f64(val).unwrap()))
   }
 }
 
@@ -727,7 +724,7 @@ fn evaluate_string(strc: &[u8]) -> Result<Value> {
     Err(e) => {
       return Err(Error {
         kind: ErrorKind::EvaluatorError,
-        message: format!("Failed to decode string literal in expression."),
+        message: "Failed to decode string literal in expression.".to_string(),
         source: Some(Box::new(e)),
       });
     }
@@ -792,7 +789,7 @@ fn cast_as_string(v: &Value) -> Option<String> {
         Some("false".to_owned())
       }
     }
-    Value::Number(n) => Some(format!("{}", n)),
+    Value::Number(n) => Some(format!("{n}")),
     Value::String(s) => Some(s.to_owned()),
     Value::Array(_) => None,
     Value::Object(_) => None,
@@ -814,8 +811,8 @@ fn handle_plus_operator(a: &Value, b: &Value) -> Result<Value> {
       serde_json::Number::from_f64(num_a.unwrap() + num_b.unwrap()).unwrap(),
     ));
   }
-  let str_a = cast_as_string(&a);
-  let str_b = cast_as_string(&b);
+  let str_a = cast_as_string(a);
+  let str_b = cast_as_string(b);
   if str_a.is_some() && str_b.is_some() {
     return Ok(Value::String(format!(
       "{}{}",
@@ -823,11 +820,11 @@ fn handle_plus_operator(a: &Value, b: &Value) -> Result<Value> {
       str_b.unwrap()
     )));
   }
-  return Err(Error {
+  Err(Error {
     kind: ErrorKind::EvaluatorError,
-    message: format!("Failed to perform plus operator on {:?} and {:?}.", a, b),
+    message: format!("Failed to perform plus operator on {a:?} and {b:?}."),
     source: None,
-  });
+  })
 }
 
 fn handle_minus_operator(a: &Value, b: &Value) -> Result<Value> {
@@ -845,11 +842,11 @@ fn handle_minus_operator(a: &Value, b: &Value) -> Result<Value> {
       serde_json::Number::from_f64(num_a.unwrap() - num_b.unwrap()).unwrap(),
     ));
   }
-  return Err(Error {
+  Err(Error {
     kind: ErrorKind::EvaluatorError,
-    message: format!("Failed to perform minus operator on {:?} and {:?}.", a, b),
+    message: format!("Failed to perform minus operator on {a:?} and {b:?}."),
     source: None,
-  });
+  })
 }
 
 fn handle_times_operator(a: &Value, b: &Value) -> Result<Value> {
@@ -867,11 +864,11 @@ fn handle_times_operator(a: &Value, b: &Value) -> Result<Value> {
       serde_json::Number::from_f64(num_a.unwrap() * num_b.unwrap()).unwrap(),
     ));
   }
-  return Err(Error {
+  Err(Error {
     kind: ErrorKind::EvaluatorError,
-    message: format!("Failed to perform times operator on {:?} and {:?}.", a, b),
+    message: format!("Failed to perform times operator on {a:?} and {b:?}."),
     source: None,
-  });
+  })
 }
 
 fn handle_divide_operator(a: &Value, b: &Value) -> Result<Value> {
@@ -882,11 +879,11 @@ fn handle_divide_operator(a: &Value, b: &Value) -> Result<Value> {
       serde_json::Number::from_f64(num_a.unwrap() / num_b.unwrap()).unwrap(),
     ));
   }
-  return Err(Error {
+  Err(Error {
     kind: ErrorKind::EvaluatorError,
-    message: format!("Failed to perform times operator on {:?} and {:?}.", a, b),
+    message: format!("Failed to perform times operator on {a:?} and {b:?}."),
     source: None,
-  });
+  })
 }
 #[cfg(test)]
 mod tests;

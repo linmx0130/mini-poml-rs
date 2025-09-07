@@ -18,7 +18,7 @@ impl TagRenderer for MarkdownTagRenderer {
   fn render_tag(
     &self,
     tag: &PomlTagNode,
-    attribute_values: &Vec<(String, String)>,
+    attribute_values: &[(String, String)],
     children_result: Vec<String>,
     source_buf: &[u8],
   ) -> Result<String> {
@@ -59,7 +59,7 @@ impl MarkdownTagRenderer {
     if children_tags.len() != children_result.len() {
       return Err(Error {
         kind: ErrorKind::RendererError,
-        message: format!("Missing children result in rendering <poml>."),
+        message: "Missing children result in rendering <poml>.".to_string(),
         source: None,
       });
     }
@@ -89,10 +89,10 @@ impl MarkdownTagRenderer {
   fn render_code_tag(
     &self,
     tag: &PomlTagNode,
-    attribute_values: &Vec<(String, String)>,
+    attribute_values: &[(String, String)],
     source_buf: &[u8],
   ) -> String {
-    println!("{:?}", tag);
+    println!("{tag:?}");
     let tag_code =
       str::from_utf8(&source_buf[tag.original_start_pos..tag.original_end_pos]).unwrap();
     let code_start = tag_code.find('>').unwrap() + 1;
@@ -114,21 +114,21 @@ impl MarkdownTagRenderer {
       }
     }
     if inline {
-      format!("`{}`", code_content)
+      format!("`{code_content}`")
     } else {
       let header = match lang {
-        Some(l) => format!("```{}\n", l),
-        None => format!("```\n"),
+        Some(l) => format!("```{l}\n"),
+        None => "```\n".to_string(),
       };
-      format!("{}{}\n```", header, code_content)
+      format!("{header}{code_content}\n```")
     }
   }
 
   fn render_intention_block_tag(&self, title: &str, children_result: Vec<String>) -> String {
-    let mut answer = format!("# {}\n\n", title);
+    let mut answer = format!("# {title}\n\n");
     for child_text in children_result.iter() {
       if child_text.starts_with("#") {
-        answer += &format!("#{}", child_text);
+        answer += &format!("#{child_text}");
       } else {
         answer += child_text;
       }
@@ -144,7 +144,7 @@ impl MarkdownTagRenderer {
     let mut answer = String::new();
     for child_text in children_result.iter() {
       if child_text.starts_with("#") {
-        answer += &format!("#{}", child_text);
+        answer += &format!("#{child_text}");
       } else {
         answer += child_text;
       }
@@ -154,21 +154,21 @@ impl MarkdownTagRenderer {
 
   fn render_captioned_paragraph_tag(
     &self,
-    attribute_values: &Vec<(String, String)>,
+    attribute_values: &[(String, String)],
     children_result: Vec<String>,
   ) -> Result<String> {
     let Some((_, caption)) = attribute_values.iter().find(|v| v.0 == "caption") else {
       return Err(Error {
         kind: ErrorKind::RendererError,
-        message: format!("Missing `caption` attribute for the <cp> tag."),
+        message: "Missing `caption` attribute for the <cp> tag.".to_string(),
         source: None,
       });
     };
-    let mut answer = format!("# {}\n\n", caption);
+    let mut answer = format!("# {caption}\n\n");
 
     for child_text in children_result.iter() {
       if child_text.starts_with("#") {
-        answer += &format!("#{}", child_text);
+        answer += &format!("#{child_text}");
       } else {
         answer += child_text;
       }
@@ -179,7 +179,7 @@ impl MarkdownTagRenderer {
   fn render_item_tag(&self, children_result: Vec<String>) -> String {
     let raw_content = children_result.join("");
     let lines: Vec<&str> = raw_content.split('\n').collect();
-    let mut new_content = lines.get(0).map_or("", |v| v).to_string();
+    let mut new_content = lines.first().map_or("", |v| v).to_string();
     for l in &lines[1..lines.len()] {
       new_content += "\n\t";
       new_content += l;
@@ -191,14 +191,14 @@ impl MarkdownTagRenderer {
   fn render_list_tag(
     &self,
     tag: &PomlTagNode,
-    attribute_values: &Vec<(String, String)>,
+    attribute_values: &[(String, String)],
     children_result: Vec<String>,
   ) -> Result<String> {
     let children_tags = &tag.children;
     if children_tags.len() != children_result.len() {
       return Err(Error {
         kind: ErrorKind::RendererError,
-        message: format!("Missing children result in rendering <list>."),
+        message: "Missing children result in rendering <list>.".to_string(),
         source: None,
       });
     }
@@ -217,7 +217,7 @@ impl MarkdownTagRenderer {
         continue;
       }
       for l in children_result[i].split("\n") {
-        if l.len() == 0 {
+        if l.is_empty() {
           answer += "\n";
         } else if l.starts_with("\t") {
           answer += l;
@@ -228,11 +228,11 @@ impl MarkdownTagRenderer {
             "dash" => "- ".to_owned(),
             "star" => "* ".to_owned(),
             "plus" => "+ ".to_owned(),
-            "decimal" => format!("{}. ", item_counter),
+            "decimal" => format!("{item_counter}. "),
             _ => {
               return Err(Error {
                 kind: ErrorKind::RendererError,
-                message: format!("Unknown list style: {}", list_style),
+                message: format!("Unknown list style: {list_style}"),
                 source: None,
               });
             }

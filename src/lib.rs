@@ -20,10 +20,7 @@ pub enum PomlNode<'a> {
 
 impl<'a> PomlNode<'a> {
   pub fn is_tag(&self) -> bool {
-    match self {
-      PomlNode::Tag(_) => true,
-      _ => false,
-    }
+    matches!(self, PomlNode::Tag(_))
   }
 }
 
@@ -43,10 +40,10 @@ impl<'a> MarkdownPomlRenderer<'a> {
     doc: &'a str,
     context: render::render_context::RenderContext,
   ) -> Self {
-    let parser = PomlParser::from_str(&doc);
+    let parser = PomlParser::from_str(doc);
     render::Renderer {
-      parser: parser,
-      context: context,
+      parser,
+      context,
       tag_renderer: render::tag_renderer::MarkdownTagRenderer {},
     }
   }

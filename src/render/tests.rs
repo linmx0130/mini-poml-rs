@@ -21,18 +21,18 @@ impl TagRenderer for TestTagRenderer {
   fn render_tag(
     &self,
     tag: &PomlTagNode,
-    attribute_values: &Vec<(String, String)>,
+    attribute_values: &[(String, String)],
     children_result: Vec<String>,
     _source_buf: &[u8],
   ) -> Result<String> {
     let mut answer = String::new();
     answer += &format!("Name: {}\n", tag.name);
     for (key, value) in attribute_values {
-      answer += &format!("  - {}: {}\n", key, value);
+      answer += &format!("  - {key}: {value}\n");
     }
     answer += "=====\n";
     for c in children_result {
-      answer += &format!("{}\n", c);
+      answer += &format!("{c}\n");
     }
     answer += "=====\n";
     Ok(answer)
@@ -51,8 +51,8 @@ fn test_render_content() {
   let context = render_context::RenderContext::from_iter(variables);
   let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
-    parser: parser,
-    context: context,
+    parser,
+    context,
     tag_renderer: TestTagRenderer {},
   };
 
@@ -72,8 +72,8 @@ fn test_render_markdown() {
   let context = render_context::RenderContext::from_iter(variables);
   let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
-    parser: parser,
-    context: context,
+    parser,
+    context,
     tag_renderer: MarkdownTagRenderer {},
   };
 
@@ -95,8 +95,8 @@ fn test_let_tag() {
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
   let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
-    parser: parser,
-    context: context,
+    parser,
+    context,
     tag_renderer: TestTagRenderer {},
   };
 
@@ -115,8 +115,8 @@ fn test_let_tag_children_value() {
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
   let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
-    parser: parser,
-    context: context,
+    parser,
+    context,
     tag_renderer: TestTagRenderer {},
   };
 
@@ -135,8 +135,8 @@ fn test_let_tag_duplicated_values() {
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
   let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
-    parser: parser,
-    context: context,
+    parser,
+    context,
     tag_renderer: TestTagRenderer {},
   };
 
@@ -155,8 +155,8 @@ fn test_let_tag_with_type() {
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
   let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
-    parser: parser,
-    context: context,
+    parser,
+    context,
     tag_renderer: TestTagRenderer {},
   };
 
@@ -176,8 +176,8 @@ fn test_let_tag_with_type_with_invalid_value() {
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
   let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
-    parser: parser,
-    context: context,
+    parser,
+    context,
     tag_renderer: TestTagRenderer {},
   };
 
@@ -199,8 +199,8 @@ fn test_if_attributes() {
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
   let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
-    parser: parser,
-    context: context,
+    parser,
+    context,
     tag_renderer: TestTagRenderer {},
   };
 
@@ -223,8 +223,8 @@ fn test_for_attributes() {
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
   let parser = PomlParser::from_str(doc);
   let mut renderer = Renderer {
-    parser: parser,
-    context: context,
+    parser,
+    context,
     tag_renderer: TestTagRenderer {},
   };
 
@@ -251,11 +251,10 @@ if __name__ == "__main__":
 <poml syntax="markdown">
   <let name="name" value="world" />
 <code lang="python">
-{}
+{code_piece}
 </code>
 </poml>
-"#,
-    code_piece
+"#
   );
   let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
   let output = renderer.render().unwrap();
@@ -278,7 +277,7 @@ fn test_intentional_blocks() {
   </task>
 </poml>
 "#;
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   let output = renderer.render().unwrap();
   assert!(output.contains("# Role\n\nYou're a helpful assistant."));
   assert!(output.contains("# Task\n\n"));
@@ -301,7 +300,7 @@ fn test_variable_scope() {
 "#;
   let mut variables = HashMap::new();
   variables.insert("a".to_owned(), json!("0"));
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, variables);
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, variables);
   let output = renderer.render().unwrap();
   assert!(output.contains("Start 0"));
   assert!(output.contains("Mid b"));
@@ -316,7 +315,7 @@ fn test_escaping() {
   Start #lt; #gt; ###
 </poml>
 "#;
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   let output = renderer.render().unwrap();
   assert!(output.contains("Start < > ###"));
 }
@@ -333,7 +332,7 @@ fn test_header_and_section() {
   <h>Header 3</h>
 </poml>
 "#;
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   let output = renderer.render().unwrap();
   assert!(output.contains("# Header 1"));
   assert!(output.contains("## Header 2"));
@@ -350,7 +349,7 @@ fn test_include() {
 </poml>
 "#;
   let a_doc = r#"<h>AAA</h>"#;
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   renderer
     .context
     .file_mapping
@@ -370,7 +369,7 @@ fn test_list_render() {
   </list>
 </poml>
 "#;
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   let output = renderer.render().unwrap();
   assert!(output.contains("* Head"));
   assert!(output.contains("* 1"));
@@ -392,7 +391,7 @@ fn test_nested_list_render() {
   </list>
 </poml>
 "#;
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   let output = renderer.render().unwrap();
   assert!(output.contains("-  1. (1, a)\n\t2. (1, b)\n\t3. (1, c)"));
   assert!(output.contains("-  1. (2, a)\n\t2. (2, b)\n\t3. (2, c)"));
@@ -409,7 +408,7 @@ fn test_captioned_paragraph() {
     <item>Please use simple words.</item>
   </list>
 </cp>"#;
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   let output = renderer.render().unwrap();
   assert!(output.contains("# Constraints\n\n"));
   assert!(output.contains("## Sub-list\n\n"));
@@ -426,7 +425,7 @@ fn test_let_src_include() {
 </poml>
 "#;
   let foo_doc = r#"{"bar":"fubar"}"#;
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   renderer
     .context
     .file_mapping
@@ -446,7 +445,7 @@ fn test_let_object() {
   <p>{{ foo.bar }} </p>
 </poml>
 "#;
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   let output = renderer.render().unwrap();
   assert!(output.contains("fubar"));
 }
@@ -462,7 +461,7 @@ fn test_let_array() {
   <p for="v in foo"> {{ v }} </p>
 </poml>
 "#;
-  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(&doc, HashMap::new());
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   let output = renderer.render().unwrap();
   assert!(output.contains("1"));
   assert!(output.contains("foobar"));

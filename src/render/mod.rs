@@ -51,9 +51,8 @@ where
         if if_attribute_present && for_loop_attribute.is_some() {
           return Err(Error {
             kind: ErrorKind::RendererError,
-            message: format!(
-              "Control flow attributes `if` and `for` on the same node is not supported!"
-            ),
+            message: "Control flow attributes `if` and `for` on the same node is not supported!"
+              .to_string(),
             source: None,
           });
         }
@@ -64,7 +63,7 @@ where
           if for_loop_components.len() != 2 {
             return Err(Error {
               kind: ErrorKind::RendererError,
-              message: format!("Invalid for-loop attribute value: {}", for_loop_instruction),
+              message: format!("Invalid for-loop attribute value: {for_loop_instruction}"),
               source: None,
             });
           }
@@ -93,13 +92,13 @@ where
             });
             self.context.set_value("loop", loop_variable);
             let item_node_result =
-              self.process_tag_node_without_for(&tag_node, attribute_values.clone())?;
+              self.process_tag_node_without_for(tag_node, attribute_values.clone())?;
             answer += &item_node_result;
           }
           self.context.pop_scope();
-          return Ok(answer);
+          Ok(answer)
         } else {
-          self.process_tag_node_without_for(&tag_node, attribute_values)
+          self.process_tag_node_without_for(tag_node, attribute_values)
         }
       }
       PomlNode::Text(text) => self.render_text(text),
@@ -115,16 +114,14 @@ where
     tag_node: &PomlTagNode,
     attribute_values: Vec<(String, String)>,
   ) -> Result<String> {
-    for (key, value) in &attribute_values {
-      if key == &"if" {
-        if utils::is_false_value(&value) {
-          return Ok("".to_owned());
-        }
+    for (_, value) in &attribute_values {
+      if utils::is_false_value(value) {
+        return Ok("".to_owned());
       }
     }
 
     let mut children_result = Vec::new();
-    if tag_node.children.len() > 0 {
+    if !tag_node.children.is_empty() {
       self.context.push_scope();
       for child in tag_node.children.iter() {
         children_result.push(self.render_impl(child)?);
@@ -151,22 +148,22 @@ where
     attribute_values: Vec<(String, String)>,
     children_result: Vec<String>,
   ) -> Result<String> {
-    let name = match attribute_values.iter().find(|v| v.0 == "name") {
-      Some((_, value)) => Some(value),
-      None => None,
-    };
+    let name = attribute_values
+      .iter()
+      .find(|v| v.0 == "name")
+      .map(|(_, value)| value);
 
     // Check whether more than one source of value is provided
-    let children_value = if children_result.len() > 0 {
+    let children_value = if !children_result.is_empty() {
       Some(children_result.join(""))
     } else {
       None
     };
 
-    let attribute_value = match attribute_values.iter().find(|v| v.0 == "value") {
-      Some((_, value)) => Some(value.to_string()),
-      None => None,
-    };
+    let attribute_value = attribute_values
+      .iter()
+      .find(|v| v.0 == "value")
+      .map(|(_, value)| value.to_string());
 
     let src_value = match attribute_values.iter().find(|v| v.0 == "src") {
       Some((_, src)) => {
@@ -201,23 +198,20 @@ where
       0 => {
         return Err(Error {
           kind: ErrorKind::RendererError,
-          message: format!("No value is provided for the <let> node"),
+          message: "No value is provided for the <let> node".to_string(),
           source: None,
         });
       }
-      1 => {
-        if children_value.is_some() {
-          children_value.unwrap()
-        } else if src_value.is_some() {
-          src_value.unwrap()
-        } else {
-          attribute_value.unwrap()
-        }
-      }
+      1 => match (children_value, src_value, attribute_value) {
+        (Some(v), None, None) => v,
+        (None, Some(v), None) => v,
+        (None, None, Some(v)) => v,
+        _ => unreachable!(),
+      },
       _ => {
         return Err(Error {
           kind: ErrorKind::RendererError,
-          message: format!("More than one value is provided for the <let> node."),
+          message: "More than one value is provided for the <let> node.".to_string(),
           source: None,
         });
       }
@@ -227,7 +221,7 @@ where
       let Ok(Value::Object(value_obj)) = serde_json::from_str(&value) else {
         return Err(Error {
           kind: ErrorKind::RendererError,
-          message: format!("Only object value can be used to set context variables"),
+          message: "Only object value can be used to set context variables".to_string(),
           source: None,
         });
       };
@@ -245,7 +239,7 @@ where
             Err(e) => {
               return Err(Error {
                 kind: ErrorKind::RendererError,
-                message: format!("Failed to convert value to integer {}", value),
+                message: format!("Failed to convert value to integer {value}"),
                 source: Some(Box::new(e)),
               });
             }
@@ -262,14 +256,14 @@ where
               Err(e) => {
                 return Err(Error {
                   kind: ErrorKind::RendererError,
-                  message: format!("Failed to convert value to number {}", value),
+                  message: format!("Failed to convert value to number {value}"),
                   source: Some(Box::new(e)),
                 });
               }
             };
             self.context.set_value(
               name,
-              Value::Number(serde_json::Number::from_f64(fval.into()).unwrap()),
+              Value::Number(serde_json::Number::from_f64(fval).unwrap()),
             );
           } else {
             let int_val: i64 = match str::parse(&value) {
@@ -277,7 +271,7 @@ where
               Err(e) => {
                 return Err(Error {
                   kind: ErrorKind::RendererError,
-                  message: format!("Failed to convert value to number {}", value),
+                  message: format!("Failed to convert value to number {value}"),
                   source: Some(Box::new(e)),
                 });
               }
@@ -300,7 +294,7 @@ where
             _ => {
               return Err(Error {
                 kind: ErrorKind::RendererError,
-                message: format!("Failed to parse value to array: {}", value),
+                message: format!("Failed to parse value to array: {value}"),
                 source: None,
               });
             }
@@ -314,7 +308,7 @@ where
             _ => {
               return Err(Error {
                 kind: ErrorKind::RendererError,
-                message: format!("Failed to parse value to object: {}", value),
+                message: format!("Failed to parse value to object: {value}"),
                 source: None,
               });
             }
@@ -323,7 +317,7 @@ where
         _ => {
           return Err(Error {
             kind: ErrorKind::RendererError,
-            message: format!("Unknown type for varaible: {}", type_value),
+            message: format!("Unknown type for varaible: {type_value}"),
             source: None,
           });
         }
@@ -338,7 +332,7 @@ where
     let Some((_, src)) = attribute_values.iter().find(|v| v.0 == "src") else {
       return Err(Error {
         kind: ErrorKind::RendererError,
-        message: format!("`src` attribute not found on <include>."),
+        message: "`src` attribute not found on <include>.".to_string(),
         source: None,
       });
     };
@@ -381,7 +375,7 @@ where
             return Err(Error {
               kind: ErrorKind::RendererError,
               // TODO add line/col position for the error message.
-              message: format!("Expression end not found in text content."),
+              message: "Expression end not found in text content.".to_string(),
               source: None,
             });
           }
@@ -408,7 +402,7 @@ where
           if utils::buf_match_str(p, pos, escaping_pattern) {
             escaped = true;
             answer_buf.push(escaping_target);
-            pos = pos + escaping_pattern.len();
+            pos += escaping_pattern.len();
             break;
           }
         }
@@ -438,11 +432,11 @@ where
         }
       }
       Value::Bool(b) => {
-        format!("{}", b)
+        format!("{b}")
       }
       Value::Null => "null".to_owned(),
       _ => {
-        format!("{:?}", value)
+        format!("{value:?}")
       }
     }
   }

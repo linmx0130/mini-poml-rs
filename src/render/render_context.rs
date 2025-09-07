@@ -81,7 +81,7 @@ impl RenderContext {
         Err(e) => {
           return Err(Error {
             kind: ErrorKind::RendererError,
-            message: format!("Failed to open file included: {}", filename),
+            message: format!("Failed to open file included: {filename}"),
             source: Some(Box::new(e)),
           });
         }
@@ -91,7 +91,7 @@ impl RenderContext {
         Err(e) => {
           return Err(Error {
             kind: ErrorKind::RendererError,
-            message: format!("Failed to read file included: {}", filename),
+            message: format!("Failed to read file included: {filename}"),
             source: Some(Box::new(e)),
           });
         }

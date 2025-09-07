@@ -32,7 +32,7 @@ pub struct Error {
 
 impl StdError for Error {
   fn source(&self) -> Option<&(dyn StdError + 'static)> {
-    self.source.as_ref().and_then(|e| Some(e.as_ref()))
+    self.source.as_ref().map(|e| e.as_ref())
   }
 }
 

@@ -11,7 +11,7 @@ pub trait TagRenderer: Clone {
   fn render_tag(
     &self,
     tag: &PomlTagNode,
-    attribute_values: &Vec<(String, String)>,
+    attribute_values: &[(String, String)],
     children_result: Vec<String>,
     source_buf: &[u8],
   ) -> Result<String>;

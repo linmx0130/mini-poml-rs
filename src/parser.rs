@@ -35,10 +35,8 @@ impl<'a> PomlParser<'a> {
     let mut first_not_space = None;
     {
       for pos in 0..buf.len() {
-        if first_not_space.is_none() {
-          if !buf[pos].is_ascii_whitespace() {
-            first_not_space = Some(pos);
-          }
+        if first_not_space.is_none() && !buf[pos].is_ascii_whitespace() {
+          first_not_space = Some(pos);
         }
         if buf[pos] == b'\n' {
           line_end_pos.push(pos);
@@ -50,7 +48,7 @@ impl<'a> PomlParser<'a> {
     }
 
     PomlParser {
-      buf: buf,
+      buf,
       pos: first_not_space.unwrap_or(buf.len()),
       line_end_pos,
     }
@@ -101,7 +99,7 @@ impl<'a> PomlParser<'a> {
         PomlElementKind::Tag => {
           if self.is_self_close_tag_element(element) {
             let tag = self.create_tag_from_element(element)?;
-            if node_stack.len() == 0 {
+            if node_stack.is_empty() {
               if tag.name != "poml" {
                 node_stack.push(PomlTagNode {
                   name: "poml",
@@ -114,7 +112,7 @@ impl<'a> PomlParser<'a> {
               } else {
                 return Err(Error {
                   kind: ErrorKind::ParserError,
-                  message: format!("<poml> tag should not close itself."),
+                  message: "<poml> tag should not close itself.".to_string(),
                   source: None,
                 });
               }
@@ -166,17 +164,15 @@ impl<'a> PomlParser<'a> {
             }
           } else {
             let tag = self.create_tag_from_element(element)?;
-            if node_stack.len() == 0 {
-              if tag.name != "poml" {
-                node_stack.push(PomlTagNode {
-                  name: "poml",
-                  attributes: vec![],
-                  children: vec![],
-                  original_start_pos: 0,
-                  original_end_pos: self.buf.len(),
-                });
-                added_poml_root = true;
-              }
+            if node_stack.is_empty() && tag.name != "poml" {
+              node_stack.push(PomlTagNode {
+                name: "poml",
+                attributes: vec![],
+                children: vec![],
+                original_start_pos: 0,
+                original_end_pos: self.buf.len(),
+              });
+              added_poml_root = true;
             }
             node_stack.push(tag);
           }
@@ -185,7 +181,7 @@ impl<'a> PomlParser<'a> {
     }
 
     if node_stack.len() == 1 && added_poml_root {
-      return Ok(node_stack.pop().unwrap());
+      Ok(node_stack.pop().unwrap())
     } else {
       Err(Error {
         kind: ErrorKind::ParserError,
@@ -202,7 +198,7 @@ impl<'a> PomlParser<'a> {
       pos = self.consume_space(pos);
       if self.buf[pos].is_ascii_alphanumeric() {
         let (attribute_name, next_pos) = self.consume_key_str(pos);
-        if attributes.iter().find(|v| v.0 == attribute_name).is_some() {
+        if attributes.iter().any(|v| v.0 == attribute_name) {
           return Err(Error {
             kind: ErrorKind::ParserError,
             message: format!(
@@ -383,7 +379,7 @@ impl<'a> PomlParser<'a> {
             None => {
               return Err(Error {
                 kind: ErrorKind::ParserError,
-                message: format!("Tag starting from {} is not complete", start_pos),
+                message: format!("Tag starting from {start_pos} is not complete"),
                 source: None,
               });
             }
@@ -477,7 +473,7 @@ impl<'a> PomlParser<'a> {
       0
     };
     let col = pos - offset;
-    return (line_number, col);
+    (line_number, col)
   }
 }
 
