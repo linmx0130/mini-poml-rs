@@ -25,6 +25,7 @@ impl TagRenderer for MarkdownTagRenderer {
     match tag.name {
       "poml" => self.render_poml_tag(tag, children_result),
       "p" => Ok(self.render_p_tag(children_result)),
+      "br" => Ok(self.render_br_tag()),
       "b" => Ok(self.render_bold_tag(children_result)),
       "i" => Ok(self.render_italic_tag(children_result)),
       "code" => Ok(self.render_code_tag(tag, attribute_values, source_buf)),
@@ -34,6 +35,11 @@ impl TagRenderer for MarkdownTagRenderer {
       "role" => Ok(self.render_intention_block_tag("Role", children_result)),
       "task" => Ok(self.render_intention_block_tag("Task", children_result)),
       "output-format" => Ok(self.render_intention_block_tag("Output Format", children_result)),
+      "examples" => Ok(self.render_intention_block_tag("Examples", children_result)),
+      "example" => Ok(self.render_p_tag(children_result)),
+      "input" => Ok(self.render_p_tag(children_result)),
+      "output" => Ok(self.render_p_tag(children_result)),
+      "hint" => Ok(self.render_hint_tag(children_result)),
       "stepwise-instructions" => {
         Ok(self.render_intention_block_tag("Stepwise Instructions", children_result))
       }
@@ -78,8 +84,20 @@ impl MarkdownTagRenderer {
     format!("{}\n\n", children_result.join(""))
   }
 
+  fn render_br_tag(&self) -> String {
+    "\n\n".to_string()
+  }
+
   fn render_bold_tag(&self, children_result: Vec<String>) -> String {
     format!("**{}**", children_result.join(""))
+  }
+
+  fn render_hint_tag(&self, children_result: Vec<String>) -> String {
+    format!(
+      "{} {}",
+      self.render_bold_tag(vec!["Hint:".to_owned()]),
+      self.render_p_tag(children_result)
+    )
   }
 
   fn render_italic_tag(&self, children_result: Vec<String>) -> String {

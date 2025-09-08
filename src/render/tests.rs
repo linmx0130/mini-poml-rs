@@ -467,3 +467,28 @@ fn test_let_array() {
   assert!(output.contains("foobar"));
   assert!(output.contains("true"));
 }
+
+#[test]
+fn test_examples() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <examples>
+    <example>
+      <input>What is the capital of France?</input>
+      <output>Paris</output>
+    </example>
+    <example>
+      <input>What is the capital of Germany?</input>
+      <output>Berlin</output>
+    </example>
+  </examples>
+  <hint>No need to add any explanation</hint>
+</poml>
+"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("# Examples"));
+  assert!(output.contains("Paris\n"));
+  assert!(output.contains("**Hint:** No need to add any explanation"));
+}
