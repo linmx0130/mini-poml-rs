@@ -398,7 +398,7 @@ fn process_equality_operators<'a>(
 ) -> Result<Vec<ExpressionPart<'a>>> {
   let mut contain_equals = false;
   for part in &parts {
-    if *part == ExpressionPart::Operator("===") {
+    if *part == ExpressionPart::Operator("===") || *part == ExpressionPart::Operator("!==") {
       contain_equals = true;
       break;
     }
@@ -429,6 +429,25 @@ fn process_equality_operators<'a>(
           });
         };
         let value = a == *b;
+        new_parts.push(ExpressionPart::Value(Value::Bool(value)));
+        i += 2;
+      }
+      ExpressionPart::Operator("!==") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator !== appears without a value before it.".to_string(),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator !== appears without a value after it.".to_string(),
+            source: None,
+          });
+        };
+        let value = a != *b;
         new_parts.push(ExpressionPart::Value(Value::Bool(value)));
         i += 2;
       }

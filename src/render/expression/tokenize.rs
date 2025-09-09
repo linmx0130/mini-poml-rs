@@ -137,8 +137,13 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         pos += 1;
       }
       '!' => {
-        answer.push(ExpressionToken::Exclamation);
-        pos += 1;
+        if pos + 2 < buf.len() && buf[pos + 1] == b'=' && buf[pos + 2] == b'=' {
+          answer.push(ExpressionToken::ArithOp(&buf[pos..pos + 3]));
+          pos += 3;
+        } else {
+          answer.push(ExpressionToken::Exclamation);
+          pos += 1;
+        }
       }
       c if c.is_whitespace() => {
         pos += 1;
@@ -290,6 +295,20 @@ mod tests {
         ExpressionToken::ArithOp(b"==="),
         ExpressionToken::Number(b"1"),
         ExpressionToken::RightParenthesis
+      ]
+    );
+  }
+
+  #[test]
+  fn test_tokenize_not_equal() {
+    let expression = "a !== b";
+    let tokens = tokenize_expression(expression.as_bytes()).unwrap();
+    assert_eq!(
+      tokens,
+      [
+        ExpressionToken::Ref(b"a"),
+        ExpressionToken::ArithOp(b"!=="),
+        ExpressionToken::Ref(b"b"),
       ]
     );
   }
