@@ -893,18 +893,30 @@ fn handle_times_operator(a: &Value, b: &Value) -> Result<Value> {
 }
 
 fn handle_divide_operator(a: &Value, b: &Value) -> Result<Value> {
-  let num_a = cast_as_f64(a);
-  let num_b = cast_as_f64(b);
-  if num_a.is_some() && num_b.is_some() {
-    return Ok(Value::Number(
-      serde_json::Number::from_f64(num_a.unwrap() / num_b.unwrap()).unwrap(),
-    ));
-  }
-  Err(Error {
-    kind: ErrorKind::EvaluatorError,
-    message: format!("Failed to perform times operator on {a:?} and {b:?}."),
-    source: None,
-  })
+  let Some(num_a) = cast_as_f64(a) else {
+    return Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: format!("Failed to cast first operand as number for division: {a}",),
+      source: None,
+    });
+  };
+  let Some(num_b) = cast_as_f64(b) else {
+    return Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: format!("Failed to cast second operand as number for division: {b}",),
+      source: None,
+    });
+  };
+  if num_b == 0.0 {
+    return Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: "Division by zero".to_string(),
+      source: None,
+    });
+  };
+  Ok(Value::Number(
+    serde_json::Number::from_f64(num_a / num_b).unwrap(),
+  ))
 }
 #[cfg(test)]
 mod tests;

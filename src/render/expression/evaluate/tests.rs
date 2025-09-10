@@ -607,3 +607,41 @@ fn test_logical_operator() {
   .unwrap();
   assert_eq!(result, json!(true));
 }
+
+#[test]
+fn test_div_operator() {
+  let Value::Object(variables) = json!({
+      "a": 4,
+      "b": 2,
+      "c": 3,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"/"),
+      ExpressionToken::Ref(b"b"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(2.0));
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::LeftParenthesis,
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"+"),
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::RightParenthesis,
+      ExpressionToken::ArithOp(b"/"),
+      ExpressionToken::Ref(b"c"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(8.0 / 3.0));
+}
