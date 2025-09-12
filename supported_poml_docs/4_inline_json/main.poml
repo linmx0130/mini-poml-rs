@@ -1,0 +1,9 @@
+<poml>
+  <let name="person">
+    {
+      "name": "Alice",
+      "age": 30
+    }
+  </let>
+  <p>Name: {{person.name}}, Age: {{person.age}}</p>
+</poml>

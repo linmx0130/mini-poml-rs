@@ -183,17 +183,6 @@ where
       value_count += 1;
     }
 
-    let type_value = match attribute_values.iter().find(|v| v.0 == "type") {
-      Some((_, v)) => v,
-      None => {
-        if src_value.is_some() {
-          "object"
-        } else {
-          "string"
-        }
-      }
-    };
-
     let value: String = match value_count {
       0 => {
         return Err(Error {
@@ -231,15 +220,96 @@ where
       return Ok("".to_owned());
     };
 
-    if type_value != "string" {
-      match type_value {
-        "integer" => {
+    let type_value = match attribute_values.iter().find(|v| v.0 == "type") {
+      Some((_, v)) => v,
+      None => {
+        // Guess the value type based on the value
+
+        // If it is a boolean value
+        if let Ok(bool_value) = value.parse::<bool>() {
+          self.context.set_value(name, Value::Bool(bool_value));
+          return Ok("".to_owned());
+        }
+
+        // If it is an integer
+        if let Ok(int_value) = value.parse::<i64>() {
+          self.context.set_value(
+            name,
+            Value::Number(serde_json::Number::from_i128(int_value.into()).unwrap()),
+          );
+          return Ok("".to_owned());
+        }
+
+        // If it is a float
+        if let Ok(float_value) = value.parse::<f64>() {
+          self.context.set_value(
+            name,
+            Value::Number(serde_json::Number::from_f64(float_value).unwrap()),
+          );
+          return Ok("".to_owned());
+        }
+
+        // If it is an array
+        if let Ok(arr_value) = serde_json::from_str::<serde_json::Value>(&value) {
+          if let Some(arr) = arr_value.as_array() {
+            self.context.set_value(name, Value::Array(arr.clone()));
+            return Ok("".to_owned());
+          }
+        }
+
+        // If it is an object
+        if let Ok(obj_value) = serde_json::from_str::<serde_json::Value>(&value) {
+          if let Some(obj) = obj_value.as_object() {
+            self.context.set_value(name, Value::Object(obj.clone()));
+            return Ok("".to_owned());
+          }
+        }
+
+        // Otherwise, treat it as string
+        "string"
+      }
+    };
+
+    match type_value {
+      "integer" => {
+        let int_val: i64 = match str::parse(&value) {
+          Ok(v) => v,
+          Err(e) => {
+            return Err(Error {
+              kind: ErrorKind::RendererError,
+              message: format!("Failed to convert value to integer {value}"),
+              source: Some(Box::new(e)),
+            });
+          }
+        };
+        self.context.set_value(
+          name,
+          Value::Number(serde_json::Number::from_i128(int_val.into()).unwrap()),
+        );
+      }
+      "number" => {
+        if value.contains('.') {
+          let fval: f64 = match str::parse(&value) {
+            Ok(v) => v,
+            Err(e) => {
+              return Err(Error {
+                kind: ErrorKind::RendererError,
+                message: format!("Failed to convert value to number {value}"),
+                source: Some(Box::new(e)),
+              });
+            }
+          };
+          self.context.set_value(
+            name,
+            Value::Number(serde_json::Number::from_f64(fval).unwrap()),
+          );
+        } else {
           let int_val: i64 = match str::parse(&value) {
             Ok(v) => v,
             Err(e) => {
               return Err(Error {
                 kind: ErrorKind::RendererError,
-                message: format!("Failed to convert value to integer {value}"),
+                message: format!("Failed to convert value to number {value}"),
                 source: Some(Box::new(e)),
               });
             }
@@ -249,81 +319,49 @@ where
             Value::Number(serde_json::Number::from_i128(int_val.into()).unwrap()),
           );
         }
-        "number" => {
-          if value.contains('.') {
-            let fval: f64 = match str::parse(&value) {
-              Ok(v) => v,
-              Err(e) => {
-                return Err(Error {
-                  kind: ErrorKind::RendererError,
-                  message: format!("Failed to convert value to number {value}"),
-                  source: Some(Box::new(e)),
-                });
-              }
-            };
-            self.context.set_value(
-              name,
-              Value::Number(serde_json::Number::from_f64(fval).unwrap()),
-            );
-          } else {
-            let int_val: i64 = match str::parse(&value) {
-              Ok(v) => v,
-              Err(e) => {
-                return Err(Error {
-                  kind: ErrorKind::RendererError,
-                  message: format!("Failed to convert value to number {value}"),
-                  source: Some(Box::new(e)),
-                });
-              }
-            };
-            self.context.set_value(
-              name,
-              Value::Number(serde_json::Number::from_i128(int_val.into()).unwrap()),
-            );
-          }
-        }
-        "boolean" => {
-          let bool_val = !utils::is_false_value(&value);
-          self.context.set_value(name, Value::Bool(bool_val));
-        }
-        "array" => {
-          match serde_json::from_str(&value) {
-            Ok(Value::Array(value_arr)) => {
-              self.context.set_value(name, Value::Array(value_arr));
-            }
-            _ => {
-              return Err(Error {
-                kind: ErrorKind::RendererError,
-                message: format!("Failed to parse value to array: {value}"),
-                source: None,
-              });
-            }
-          };
-        }
-        "object" => {
-          match serde_json::from_str(&value) {
-            Ok(Value::Object(value_obj)) => {
-              self.context.set_value(name, Value::Object(value_obj));
-            }
-            _ => {
-              return Err(Error {
-                kind: ErrorKind::RendererError,
-                message: format!("Failed to parse value to object: {value}"),
-                source: None,
-              });
-            }
-          };
-        }
-        _ => {
-          return Err(Error {
-            kind: ErrorKind::RendererError,
-            message: format!("Unknown type for varaible: {type_value}"),
-            source: None,
-          });
-        }
       }
-    } else {
-      self.context.set_value(name, Value::String(value));
+      "boolean" => {
+        let bool_val = !utils::is_false_value(&value);
+        self.context.set_value(name, Value::Bool(bool_val));
+      }
+      "array" => {
+        match serde_json::from_str(&value) {
+          Ok(Value::Array(value_arr)) => {
+            self.context.set_value(name, Value::Array(value_arr));
+          }
+          _ => {
+            return Err(Error {
+              kind: ErrorKind::RendererError,
+              message: format!("Failed to parse value to array: {value}"),
+              source: None,
+            });
+          }
+        };
+      }
+      "object" => {
+        match serde_json::from_str(&value) {
+          Ok(Value::Object(value_obj)) => {
+            self.context.set_value(name, Value::Object(value_obj));
+          }
+          _ => {
+            return Err(Error {
+              kind: ErrorKind::RendererError,
+              message: format!("Failed to parse value to object: {value}"),
+              source: None,
+            });
+          }
+        };
+      }
+      "string" => {
+        self.context.set_value(name, Value::String(value));
+      }
+      _ => {
+        return Err(Error {
+          kind: ErrorKind::RendererError,
+          message: format!("Unknown type for varaible: {type_value}"),
+          source: None,
+        });
+      }
     }
     Ok("".to_owned())
   }
