@@ -40,7 +40,7 @@ impl<'a> MarkdownPomlRenderer<'a> {
     doc: &'a str,
     context: render::render_context::RenderContext,
   ) -> Self {
-    let parser = PomlParser::from_str(doc);
+    let parser = PomlParser::from_poml_str(doc);
     render::Renderer {
       parser,
       context,

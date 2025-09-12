@@ -9,6 +9,8 @@ use super::utils::is_false_json_value;
 use crate::error::{Error, ErrorKind, Result};
 use crate::render::render_context::RenderContext;
 use serde_json::Value;
+mod cast;
+use cast::*;
 
 pub fn evaluate_expression_tokens(
   tokens: &[ExpressionToken],
@@ -766,70 +768,15 @@ fn match_u8_str(src: &[u8], pat: &str) -> bool {
   true
 }
 
-fn cast_as_i64(v: &Value) -> Option<i64> {
-  match v {
-    Value::Null => None,
-    Value::Bool(b) => {
-      if *b {
-        Some(1)
-      } else {
-        Some(0)
-      }
-    }
-    Value::Number(n) => n.as_i64(),
-    Value::String(_) => None,
-    Value::Array(_) => None,
-    Value::Object(_) => None,
-  }
-}
-
-fn cast_as_f64(v: &Value) -> Option<f64> {
-  match v {
-    Value::Null => None,
-    Value::Bool(b) => {
-      if *b {
-        Some(1.0)
-      } else {
-        Some(0.0)
-      }
-    }
-    Value::Number(n) => n.as_f64(),
-    Value::String(_) => None,
-    Value::Array(_) => None,
-    Value::Object(_) => None,
-  }
-}
-
-fn cast_as_string(v: &Value) -> Option<String> {
-  match v {
-    Value::Null => Some("null".to_string()),
-    Value::Bool(b) => {
-      if *b {
-        Some("true".to_owned())
-      } else {
-        Some("false".to_owned())
-      }
-    }
-    Value::Number(n) => Some(format!("{n}")),
-    Value::String(s) => Some(s.to_owned()),
-    Value::Array(_) => None,
-    Value::Object(_) => None,
-  }
-}
-
 fn handle_plus_operator(a: &Value, b: &Value) -> Result<Value> {
-  let int_a = cast_as_i64(a);
-  let int_b = cast_as_i64(b);
-  if int_a.is_some() && int_b.is_some() {
+  if let Some((int_a, int_b)) = cast_as_i64_pair(a, b) {
     return Ok(Value::Number(
-      serde_json::Number::from_i128((int_a.unwrap() + int_b.unwrap()).into()).unwrap(),
+      serde_json::Number::from_i128((int_a + int_b).into()).unwrap(),
     ));
-  }
-  let num_a = cast_as_f64(a);
-  let num_b = cast_as_f64(b);
-  if num_a.is_some() && num_b.is_some() {
+  };
+  if let Some((num_a, num_b)) = cast_as_f64_pair(a, b) {
     return Ok(Value::Number(
-      serde_json::Number::from_f64(num_a.unwrap() + num_b.unwrap()).unwrap(),
+      serde_json::Number::from_f64(num_a + num_b).unwrap(),
     ));
   }
   let str_a = cast_as_string(a);
@@ -849,18 +796,14 @@ fn handle_plus_operator(a: &Value, b: &Value) -> Result<Value> {
 }
 
 fn handle_minus_operator(a: &Value, b: &Value) -> Result<Value> {
-  let int_a = cast_as_i64(a);
-  let int_b = cast_as_i64(b);
-  if int_a.is_some() && int_b.is_some() {
+  if let Some((int_a, int_b)) = cast_as_i64_pair(a, b) {
     return Ok(Value::Number(
-      serde_json::Number::from_i128((int_a.unwrap() - int_b.unwrap()).into()).unwrap(),
+      serde_json::Number::from_i128((int_a - int_b).into()).unwrap(),
     ));
   }
-  let num_a = cast_as_f64(a);
-  let num_b = cast_as_f64(b);
-  if num_a.is_some() && num_b.is_some() {
+  if let Some((num_a, num_b)) = cast_as_f64_pair(a, b) {
     return Ok(Value::Number(
-      serde_json::Number::from_f64(num_a.unwrap() - num_b.unwrap()).unwrap(),
+      serde_json::Number::from_f64(num_a - num_b).unwrap(),
     ));
   }
   Err(Error {
@@ -871,18 +814,14 @@ fn handle_minus_operator(a: &Value, b: &Value) -> Result<Value> {
 }
 
 fn handle_times_operator(a: &Value, b: &Value) -> Result<Value> {
-  let int_a = cast_as_i64(a);
-  let int_b = cast_as_i64(b);
-  if int_a.is_some() && int_b.is_some() {
+  if let Some((int_a, int_b)) = cast_as_i64_pair(a, b) {
     return Ok(Value::Number(
-      serde_json::Number::from_i128((int_a.unwrap() * int_b.unwrap()).into()).unwrap(),
+      serde_json::Number::from_i128((int_a * int_b).into()).unwrap(),
     ));
   }
-  let num_a = cast_as_f64(a);
-  let num_b = cast_as_f64(b);
-  if num_a.is_some() && num_b.is_some() {
+  if let Some((num_a, num_b)) = cast_as_f64_pair(a, b) {
     return Ok(Value::Number(
-      serde_json::Number::from_f64(num_a.unwrap() * num_b.unwrap()).unwrap(),
+      serde_json::Number::from_f64(num_a * num_b).unwrap(),
     ));
   }
   Err(Error {

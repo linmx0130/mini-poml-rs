@@ -49,7 +49,7 @@ fn test_render_content() {
   let mut variables = HashMap::new();
   variables.insert("name".to_owned(), json!("world"));
   let context = render_context::RenderContext::from_iter(variables);
-  let parser = PomlParser::from_str(doc);
+  let parser = PomlParser::from_poml_str(doc);
   let mut renderer = Renderer {
     parser,
     context,
@@ -70,7 +70,7 @@ fn test_render_markdown() {
         "#;
   let variables: HashMap<String, Value> = HashMap::new();
   let context = render_context::RenderContext::from_iter(variables);
-  let parser = PomlParser::from_str(doc);
+  let parser = PomlParser::from_poml_str(doc);
   let mut renderer = Renderer {
     parser,
     context,
@@ -93,7 +93,7 @@ fn test_let_tag() {
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
-  let parser = PomlParser::from_str(doc);
+  let parser = PomlParser::from_poml_str(doc);
   let mut renderer = Renderer {
     parser,
     context,
@@ -113,7 +113,7 @@ fn test_let_tag_children_value() {
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
-  let parser = PomlParser::from_str(doc);
+  let parser = PomlParser::from_poml_str(doc);
   let mut renderer = Renderer {
     parser,
     context,
@@ -133,7 +133,7 @@ fn test_let_tag_duplicated_values() {
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
-  let parser = PomlParser::from_str(doc);
+  let parser = PomlParser::from_poml_str(doc);
   let mut renderer = Renderer {
     parser,
     context,
@@ -153,7 +153,7 @@ fn test_let_tag_with_type() {
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
-  let parser = PomlParser::from_str(doc);
+  let parser = PomlParser::from_poml_str(doc);
   let mut renderer = Renderer {
     parser,
     context,
@@ -174,7 +174,7 @@ fn test_let_tag_with_type_with_invalid_value() {
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
-  let parser = PomlParser::from_str(doc);
+  let parser = PomlParser::from_poml_str(doc);
   let mut renderer = Renderer {
     parser,
     context,
@@ -197,7 +197,7 @@ fn test_if_attributes() {
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
-  let parser = PomlParser::from_str(doc);
+  let parser = PomlParser::from_poml_str(doc);
   let mut renderer = Renderer {
     parser,
     context,
@@ -221,7 +221,7 @@ fn test_for_attributes() {
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
-  let parser = PomlParser::from_str(doc);
+  let parser = PomlParser::from_poml_str(doc);
   let mut renderer = Renderer {
     parser,
     context,

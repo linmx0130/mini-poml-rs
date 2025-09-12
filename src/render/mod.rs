@@ -378,7 +378,7 @@ where
     let file_content_buf = self.context.read_file_content(src)?;
     let new_context = self.context.clone();
     let new_tag_renderer = self.tag_renderer.clone();
-    let parser = PomlParser::from_str(&file_content_buf);
+    let parser = PomlParser::from_poml_str(&file_content_buf);
     let mut renderer = Renderer {
       context: new_context,
       tag_renderer: new_tag_renderer,

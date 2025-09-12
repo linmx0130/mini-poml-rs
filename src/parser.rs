@@ -29,7 +29,7 @@ pub struct PomlParser<'a> {
 }
 
 impl<'a> PomlParser<'a> {
-  pub fn from_str(s: &'a str) -> PomlParser<'a> {
+  pub fn from_poml_str(s: &'a str) -> PomlParser<'a> {
     let buf = s.as_bytes();
     let mut line_end_pos = Vec::new();
     let mut first_not_space = None;
@@ -480,7 +480,7 @@ mod tests {
   #[test]
   fn tokenize_simple_poml() {
     let doc = r#"<poml syntax="markdown"><p> Hello, {{ name }}! </p></poml>"#;
-    let mut parser = PomlParser::from_str(doc);
+    let mut parser = PomlParser::from_poml_str(doc);
     let elements = parser.parse_as_elements().unwrap();
     assert_eq!(elements.len(), 6);
     assert_eq!(elements[0].kind, PomlElementKind::Tag);
@@ -505,7 +505,7 @@ mod tests {
   #[test]
   fn tokenize_tag_with_escape_in_attributes() {
     let doc = r#"<let name="foo" value=">bar\"" />"#;
-    let mut parser = PomlParser::from_str(doc);
+    let mut parser = PomlParser::from_poml_str(doc);
     let elements = parser.parse_as_elements().unwrap();
     let element = &elements[0];
     assert_eq!(element.kind, PomlElementKind::Tag);
@@ -520,7 +520,7 @@ mod tests {
             <p>Hello, {{ name }}!</p>
         </poml>
         "#;
-    let mut parser = PomlParser::from_str(doc);
+    let mut parser = PomlParser::from_poml_str(doc);
     let node = parser.parse_as_node().unwrap();
     assert_eq!(node.name, "poml");
     assert_eq!(node.attributes.len(), 1);
@@ -546,7 +546,7 @@ mod tests {
         <poml syntax="markdown">
             <p> Hello, {{ name }}! </p>
         "#;
-    let mut parser = PomlParser::from_str(doc);
+    let mut parser = PomlParser::from_poml_str(doc);
     let node = parser.parse_as_node();
     assert!(node.is_err());
   }
@@ -558,7 +558,7 @@ mod tests {
             <h1> Hello, {{ name }}! </p>
         </poml>
         "#;
-    let mut parser = PomlParser::from_str(doc);
+    let mut parser = PomlParser::from_poml_str(doc);
     let node = parser.parse_as_node();
     assert!(node.is_err());
     let err = node.unwrap_err();
@@ -571,7 +571,7 @@ mod tests {
             <p> Hello, {{ name }}! </p>
             <p> Good bye, {{ name }}! </p>
         "#;
-    let mut parser = PomlParser::from_str(doc);
+    let mut parser = PomlParser::from_poml_str(doc);
     let node = parser.parse_as_node().unwrap();
     assert_eq!(node.children.iter().filter(|v| v.is_tag()).count(), 2);
   }
@@ -581,7 +581,7 @@ mod tests {
     let doc = r#"
         <poml syntax="markdown" syntax="json"></poml>
         "#;
-    let mut parser = PomlParser::from_str(doc);
+    let mut parser = PomlParser::from_poml_str(doc);
     assert!(parser.parse_as_node().is_err());
   }
 }
