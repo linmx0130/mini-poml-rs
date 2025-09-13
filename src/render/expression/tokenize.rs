@@ -35,6 +35,8 @@ pub enum ExpressionToken<'a> {
   Exclamation,
   // Dot
   Dot,
+  // Question mark ?
+  QuestionMark,
 }
 
 pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>> {
@@ -134,6 +136,10 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
       }
       ':' => {
         answer.push(ExpressionToken::Colon);
+        pos += 1;
+      }
+      '?' => {
+        answer.push(ExpressionToken::QuestionMark);
         pos += 1;
       }
       '!' => {

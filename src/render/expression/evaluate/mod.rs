@@ -88,6 +88,13 @@ fn evaluate_expression_value(
           source: None,
         });
       }
+      ExpressionToken::QuestionMark => {
+        return Err(Error {
+          kind: ErrorKind::EvaluatorError,
+          message: "Not implemented to recognize ternary operators".to_string(),
+          source: None,
+        });
+      }
       _ => {
         return Err(Error {
           kind: ErrorKind::EvaluatorError,
