@@ -645,3 +645,35 @@ fn test_div_operator() {
   .unwrap();
   assert_eq!(result, json!(8.0 / 3.0));
 }
+
+#[test]
+fn test_obj_evaluation() {
+  let Value::Object(variables) = json!({}) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::LeftCurly,
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::Colon,
+      ExpressionToken::String(b"\"A\""),
+      ExpressionToken::Comma,
+      ExpressionToken::String(b"b"),
+      ExpressionToken::Colon,
+      ExpressionToken::String(b"\"b\""),
+      ExpressionToken::RightCurly,
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(
+    result,
+    json!({
+        "a": "A",
+        "b": "b"
+    })
+  );
+}

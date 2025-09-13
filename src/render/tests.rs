@@ -236,6 +236,28 @@ fn test_for_attributes() {
 }
 
 #[test]
+fn test_for_in_obj_array() {
+  let doc = r#"
+            <poml syntax="markdown">
+              <p for="item in [{name: 'apple', cnt: 1}, {name:'banana', cnt:2}]"> 
+                  {{item.name}}: {{item.cnt}}
+              </p>
+            </poml>
+        "#;
+  let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
+  let parser = PomlParser::from_poml_str(doc);
+  let mut renderer = Renderer {
+    parser,
+    context,
+    tag_renderer: TestTagRenderer {},
+  };
+
+  let output = renderer.render().unwrap();
+  assert!(output.contains("apple: 1"));
+  assert!(output.contains("banana: 2"));
+}
+
+#[test]
 fn test_code_tag() {
   use crate::MarkdownPomlRenderer;
   let code_piece = r#"

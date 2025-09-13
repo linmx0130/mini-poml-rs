@@ -82,11 +82,9 @@ fn evaluate_expression_value(
         pos = next_pos;
       }
       ExpressionToken::LeftCurly => {
-        return Err(Error {
-          kind: ErrorKind::EvaluatorError,
-          message: "Not implemented to recognize objects".to_string(),
-          source: None,
-        });
+        let (value, next_pos) = recognize_next_object(tokens, pos, context)?;
+        parts.push(ExpressionPart::Value(value));
+        pos = next_pos;
       }
       ExpressionToken::QuestionMark => {
         return Err(Error {
@@ -515,6 +513,78 @@ fn recognize_next_array(
     })
   } else {
     Ok((Value::Array(array_value), pos))
+  }
+}
+
+fn recognize_next_object(
+  tokens: &[ExpressionToken],
+  start_pos: usize,
+  context: &RenderContext,
+) -> Result<(Value, usize)> {
+  let mut pos = start_pos + 1;
+  let mut object_value = serde_json::Map::new();
+  let mut object_finished = false;
+  while pos < tokens.len() {
+    if tokens[pos] == ExpressionToken::RightCurly {
+      pos += 1;
+      object_finished = true;
+      break;
+    } else {
+      // read key
+      let key = match tokens[pos] {
+        ExpressionToken::Ref(ref_key_buf) => str::from_utf8(ref_key_buf).unwrap(),
+        ExpressionToken::String(str_key_buf) => str::from_utf8(str_key_buf).unwrap(),
+        _ => {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Object key must be a string".to_string(),
+            source: None,
+          });
+        }
+      };
+      pos += 1;
+      // Expect colon
+      if tokens[pos] != ExpressionToken::Colon {
+        return Err(Error {
+          kind: ErrorKind::EvaluatorError,
+          message: "Expect colon ':' after object key".to_string(),
+          source: None,
+        });
+      }
+      pos += 1;
+      // read value
+      let (value_value, next_pos) = evaluate_expression_value(tokens, pos, context)?;
+      object_value.insert(key.to_string(), value_value);
+      pos = next_pos;
+      // expect comma or the end of the object
+      match tokens[pos] {
+        ExpressionToken::Comma => {
+          pos += 1;
+        }
+        ExpressionToken::RightCurly => {
+          continue;
+        }
+        _ => {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: format!(
+              "Expect comma ',' or right curly '}}' characters, but found {:?}",
+              tokens[pos]
+            ),
+            source: None,
+          });
+        }
+      };
+    }
+  }
+  if !object_finished {
+    Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: "Object value has not finished in the expression".to_string(),
+      source: None,
+    })
+  } else {
+    Ok((Value::Object(object_value), pos))
   }
 }
 
