@@ -94,6 +94,15 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
           });
         }
       }
+      '>' | '<' => {
+        if pos + 1 < buf.len() && buf[pos + 1] == b'=' {
+          answer.push(ExpressionToken::ArithOp(&buf[pos..pos + 2]));
+          pos += 2;
+        } else {
+          answer.push(ExpressionToken::ArithOp(&buf[pos..pos + 1]));
+          pos += 1;
+        }
+      }
       '=' => {
         if pos + 2 < buf.len() && buf[pos + 1] == b'=' && buf[pos + 2] == b'=' {
           answer.push(ExpressionToken::ArithOp(&buf[pos..pos + 3]));

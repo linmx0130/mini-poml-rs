@@ -102,9 +102,12 @@ fn evaluate_expression_value(
       }
     }
   }
+  // Process different operators based on the operator precedence in Javascript
+  // Refer to https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_precedence
   parts = process_not_operators(parts)?;
   parts = process_times_and_divide_operators(parts)?;
   parts = process_plus_and_minus_operators(parts)?;
+  parts = process_rational_operators(parts)?;
   parts = process_equality_operators(parts)?;
   parts = process_and_operators(parts)?;
   parts = process_or_operators(parts)?;
@@ -388,6 +391,115 @@ fn process_times_and_divide_operators<'a>(
           });
         };
         let value = handle_divide_operator(&a, b)?;
+        new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      _ => {
+        new_parts.push(parts[i].clone());
+        i += 1;
+      }
+    }
+  }
+  Ok(new_parts)
+}
+
+fn process_rational_operators<'a>(
+  parts: Vec<ExpressionPart<'a>>,
+) -> Result<Vec<ExpressionPart<'a>>> {
+  let mut contain_rational = false;
+  for part in &parts {
+    if *part == ExpressionPart::Operator("<")
+      || *part == ExpressionPart::Operator("<=")
+      || *part == ExpressionPart::Operator(">")
+      || *part == ExpressionPart::Operator(">=")
+    {
+      contain_rational = true;
+      break;
+    }
+  }
+
+  // directly return if there is no rational operators in the input
+  if !contain_rational {
+    return Ok(parts);
+  }
+
+  let mut new_parts = Vec::new();
+  let mut i = 0;
+  while i < parts.len() {
+    match parts[i] {
+      ExpressionPart::Operator("<") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator < appears without a value before it.".to_string(),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator < appears without a value after it.".to_string(),
+            source: None,
+          });
+        };
+        let value = handle_less_than_operator(&a, b)?;
+        new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      ExpressionPart::Operator("<=") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator <= appears without a value before it.".to_string(),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator <= appears without a value after it.".to_string(),
+            source: None,
+          });
+        };
+        let value = handle_less_than_or_equal_operator(&a, b)?;
+        new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      ExpressionPart::Operator(">") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator > appears without a value before it.".to_string(),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator > appears without a value after it.".to_string(),
+            source: None,
+          });
+        };
+        let value = handle_greater_than_operator(&a, b)?;
+        new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      ExpressionPart::Operator(">=") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator >= appears without a value before it.".to_string(),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator >= appears without a value after it.".to_string(),
+            source: None,
+          });
+        };
+        let value = handle_greater_than_or_equal_operator(&a, b)?;
         new_parts.push(ExpressionPart::Value(value));
         i += 2;
       }
@@ -934,5 +1046,50 @@ fn handle_divide_operator(a: &Value, b: &Value) -> Result<Value> {
     serde_json::Number::from_f64(num_a / num_b).unwrap(),
   ))
 }
+
+fn handle_less_than_operator(a: &Value, b: &Value) -> Result<Value> {
+  if let Some((num_a, num_b)) = cast_as_f64_pair(a, b) {
+    return Ok(Value::Bool(num_a < num_b));
+  }
+  Err(Error {
+    kind: ErrorKind::EvaluatorError,
+    message: format!("Failed to perform less-than operator on {a:?} and {b:?}."),
+    source: None,
+  })
+}
+
+fn handle_less_than_or_equal_operator(a: &Value, b: &Value) -> Result<Value> {
+  if let Some((num_a, num_b)) = cast_as_f64_pair(a, b) {
+    return Ok(Value::Bool(num_a <= num_b));
+  }
+  Err(Error {
+    kind: ErrorKind::EvaluatorError,
+    message: format!("Failed to perform less-than operator on {a:?} and {b:?}."),
+    source: None,
+  })
+}
+
+fn handle_greater_than_operator(a: &Value, b: &Value) -> Result<Value> {
+  if let Some((num_a, num_b)) = cast_as_f64_pair(a, b) {
+    return Ok(Value::Bool(num_a > num_b));
+  }
+  Err(Error {
+    kind: ErrorKind::EvaluatorError,
+    message: format!("Failed to perform less-than operator on {a:?} and {b:?}."),
+    source: None,
+  })
+}
+
+fn handle_greater_than_or_equal_operator(a: &Value, b: &Value) -> Result<Value> {
+  if let Some((num_a, num_b)) = cast_as_f64_pair(a, b) {
+    return Ok(Value::Bool(num_a >= num_b));
+  }
+  Err(Error {
+    kind: ErrorKind::EvaluatorError,
+    message: format!("Failed to perform greater-than-or-equal operator on {a:?} and {b:?}."),
+    source: None,
+  })
+}
+
 #[cfg(test)]
 mod tests;

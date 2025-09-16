@@ -548,6 +548,72 @@ fn test_strict_inequal_operator() {
 }
 
 #[test]
+fn test_less_than_operator() {
+  let Value::Object(variables) = json!({
+      "a": 1,
+      "b": 2,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"<"),
+      ExpressionToken::Ref(b"b"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(true));
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"b"),
+      ExpressionToken::ArithOp(b"<"),
+      ExpressionToken::Ref(b"a"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(false));
+}
+
+#[test]
+fn test_less_than_or_equal_operator() {
+  let Value::Object(variables) = json!({
+      "a": 1,
+      "b": 2,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"<="),
+      ExpressionToken::Ref(b"b"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(true));
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"b"),
+      ExpressionToken::ArithOp(b"<="),
+      ExpressionToken::Ref(b"a"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(false));
+}
+
+#[test]
 fn test_logical_operator() {
   let Value::Object(variables) = json!({
       "a": true,
