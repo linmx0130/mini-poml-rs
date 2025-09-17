@@ -83,7 +83,7 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         answer.push(ExpressionToken::String(&buf[pos..string_end_pos]));
         pos = string_end_pos;
       }
-      '+' | '-' | '*' | '/' => {
+      '+' | '-' | '*' | '/' | '%' => {
         answer.push(ExpressionToken::ArithOp(&buf[pos..pos + 1]));
         pos += 1
       }

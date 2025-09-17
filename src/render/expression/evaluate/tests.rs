@@ -450,6 +450,28 @@ fn test_evaluate_times() {
 }
 
 #[test]
+fn test_evaluate_mod() {
+  let Value::Object(variables) = json!({
+      "a": 5,
+      "b": 3,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"%"),
+      ExpressionToken::Ref(b"b"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(2));
+}
+
+#[test]
 fn test_evaluate_times_and_divide() {
   let Value::Object(variables) = json!({
       "a": 1,

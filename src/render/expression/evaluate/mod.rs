@@ -105,7 +105,7 @@ fn evaluate_expression_value(
   // Process different operators based on the operator precedence in Javascript
   // Refer to https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_precedence
   parts = process_not_operators(parts)?;
-  parts = process_times_and_divide_operators(parts)?;
+  parts = process_times_divide_mod_operators(parts)?;
   parts = process_plus_and_minus_operators(parts)?;
   parts = process_rational_operators(parts)?;
   parts = process_equality_operators(parts)?;
@@ -336,12 +336,15 @@ fn process_plus_and_minus_operators<'a>(
   Ok(new_parts)
 }
 
-fn process_times_and_divide_operators<'a>(
+fn process_times_divide_mod_operators<'a>(
   parts: Vec<ExpressionPart<'a>>,
 ) -> Result<Vec<ExpressionPart<'a>>> {
   let mut contain_times_divide = false;
   for part in &parts {
-    if *part == ExpressionPart::Operator("*") || *part == ExpressionPart::Operator("/") {
+    if *part == ExpressionPart::Operator("*")
+      || *part == ExpressionPart::Operator("/")
+      || *part == ExpressionPart::Operator("%")
+    {
       contain_times_divide = true;
       break;
     }
@@ -391,6 +394,25 @@ fn process_times_and_divide_operators<'a>(
           });
         };
         let value = handle_divide_operator(&a, b)?;
+        new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      ExpressionPart::Operator("%") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator % appears without a value before it.".to_string(),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator % appears without a value after it.".to_string(),
+            source: None,
+          });
+        };
+        let value = handle_mod_operator(&a, b)?;
         new_parts.push(ExpressionPart::Value(value));
         i += 2;
       }
@@ -1064,6 +1086,33 @@ fn handle_divide_operator(a: &Value, b: &Value) -> Result<Value> {
   };
   Ok(Value::Number(
     serde_json::Number::from_f64(num_a / num_b).unwrap(),
+  ))
+}
+
+fn handle_mod_operator(a: &Value, b: &Value) -> Result<Value> {
+  let Some(int_a) = cast_as_i64(a) else {
+    return Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: format!("Failed to cast first operand as integer for modulo: {a}"),
+      source: None,
+    });
+  };
+  let Some(int_b) = cast_as_i64(b) else {
+    return Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: format!("Failed to cast second operand as integer for modulo: {b}"),
+      source: None,
+    });
+  };
+  if int_b == 0 {
+    return Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: "Modulo by zero".to_string(),
+      source: None,
+    });
+  };
+  Ok(Value::Number(
+    serde_json::Number::from_i128((int_a % int_b).into()).unwrap(),
   ))
 }
 

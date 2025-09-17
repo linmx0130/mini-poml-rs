@@ -14,7 +14,7 @@ This project is still in early development. Use at your own risk! The API may ch
 * `<code>` block
 * Expression evaluation
     * Array item and object field access
-    * `+` / `-` / `*` / `/` arithmetic operators
+    * `+` / `-` / `*` / `/` / `%` arithmetic operators
     * `!` / `&&` / `||` logical operators
     * `in` / `>` / `<` / `>=` / `<=` rational operators
     * `===` / `!==` strict equality operators
