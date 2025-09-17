@@ -10,6 +10,7 @@ pub mod tag_renderer;
 pub(crate) mod utils;
 
 use crate::error::{Error, ErrorKind, Result};
+use crate::render::expression::tokenize::ExpressionToken;
 use crate::{PomlNode, PomlParser, PomlTagNode};
 use serde_json::{Value, json};
 
@@ -37,14 +38,18 @@ where
         let mut attribute_values: Vec<(String, String)> = Vec::new();
         let mut for_loop_attribute: Option<&str> = None;
         let mut if_attribute_present = false;
+        let mut if_attribute_evaluated_as_false = false;
         for (key, value_raw) in tag_node.attributes.iter() {
-          let value = self.render_text(&value_raw[1..value_raw.len() - 1])?;
           if key == &"if" {
             if_attribute_present = true;
+            let if_attribute_value = self.context.evaluate(&value_raw[1..value_raw.len() - 1])?;
+            if_attribute_evaluated_as_false =
+              expression::utils::is_false_json_value(&if_attribute_value);
           }
           if key == &"for" {
             for_loop_attribute = Some(&value_raw[1..value_raw.len() - 1]);
           } else {
+            let value = self.render_text(&value_raw[1..value_raw.len() - 1])?;
             attribute_values.push((key.to_string(), value));
           }
         }
@@ -56,26 +61,35 @@ where
             source: None,
           });
         }
+        if if_attribute_evaluated_as_false {
+          return Ok("".to_string());
+        }
 
         // Process for loop
         if let Some(for_loop_instruction) = for_loop_attribute {
-          let for_loop_components: Vec<&str> = for_loop_instruction.split(" in ").collect();
-          if for_loop_components.len() != 2 {
+          let for_loop_tokens =
+            expression::tokenize::tokenize_expression(for_loop_instruction.as_bytes())?;
+          if for_loop_tokens.len() < 3 || for_loop_tokens[1] != ExpressionToken::ArithOp(b"in") {
             return Err(Error {
               kind: ErrorKind::RendererError,
               message: format!("Invalid for-loop attribute value: {for_loop_instruction}"),
               source: None,
             });
           }
-          let for_item_name = for_loop_components[0].trim();
-          let for_range_value = self.context.evaluate(for_loop_components[1].trim())?;
+          let ExpressionToken::Ref(for_item_name_buf) = for_loop_tokens[0] else {
+            return Err(Error {
+              kind: ErrorKind::RendererError,
+              message: format!("Invalid valid as for-loop item: {for_loop_instruction}"),
+              source: None,
+            });
+          };
+          let for_item_name = str::from_utf8(for_item_name_buf).unwrap();
+          let for_range_value =
+            expression::evaluate::evaluate_expression_tokens(&for_loop_tokens[2..], &self.context)?;
           let Value::Array(for_range) = for_range_value else {
             return Err(Error {
               kind: ErrorKind::RendererError,
-              message: format!(
-                "For loop range is not an array: {}",
-                for_loop_components[1].trim()
-              ),
+              message: format!("For loop range is not an array: {for_loop_instruction}",),
               source: None,
             });
           };
@@ -114,12 +128,6 @@ where
     tag_node: &PomlTagNode,
     attribute_values: Vec<(String, String)>,
   ) -> Result<String> {
-    for (_, value) in &attribute_values {
-      if utils::is_false_value(value) {
-        return Ok("".to_owned());
-      }
-    }
-
     let mut children_result = Vec::new();
     if !tag_node.children.is_empty() {
       self.context.push_scope();

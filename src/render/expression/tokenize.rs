@@ -47,7 +47,12 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
     match c {
       c if c.is_alphabetic() || c == '_' => {
         let ref_end_pos = seek_ref_end(buf, pos)?;
-        answer.push(ExpressionToken::Ref(&buf[pos..ref_end_pos]));
+        let ref_name = &buf[pos..ref_end_pos];
+        if ref_name == b"in" {
+          answer.push(ExpressionToken::ArithOp(&buf[pos..ref_end_pos]));
+        } else {
+          answer.push(ExpressionToken::Ref(&buf[pos..ref_end_pos]));
+        }
         pos = ref_end_pos;
       }
       c if c.is_numeric() => {
@@ -323,6 +328,20 @@ mod tests {
       [
         ExpressionToken::Ref(b"a"),
         ExpressionToken::ArithOp(b"!=="),
+        ExpressionToken::Ref(b"b"),
+      ]
+    );
+  }
+
+  #[test]
+  fn test_tokenize_in_operator() {
+    let expression = "a in b";
+    let tokens = tokenize_expression(expression.as_bytes()).unwrap();
+    assert_eq!(
+      tokens,
+      [
+        ExpressionToken::Ref(b"a"),
+        ExpressionToken::ArithOp(b"in"),
         ExpressionToken::Ref(b"b"),
       ]
     );

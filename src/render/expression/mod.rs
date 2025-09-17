@@ -4,9 +4,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-mod evaluate;
-mod tokenize;
-mod utils;
+pub(crate) mod evaluate;
+pub(crate) mod tokenize;
+pub(crate) mod utils;
 use super::render_context::RenderContext;
 use crate::error::Result;
 use serde_json::Value;

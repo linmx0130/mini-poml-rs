@@ -743,3 +743,69 @@ fn test_obj_evaluation() {
     })
   );
 }
+
+#[test]
+fn test_in_operator_on_array() {
+  let Value::Object(variables) = json!({
+      "arr": [-1, -2, -3],
+      "x": 2,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"x"),
+      ExpressionToken::ArithOp(b"in"),
+      ExpressionToken::Ref(b"arr"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(true));
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Number(b"3"),
+      ExpressionToken::ArithOp(b"in"),
+      ExpressionToken::Ref(b"arr"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(false));
+}
+
+#[test]
+fn test_in_operator_on_object() {
+  let Value::Object(variables) = json!({
+      "obj": {"name": "foo"},
+      "x": "name"
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"x"),
+      ExpressionToken::ArithOp(b"in"),
+      ExpressionToken::Ref(b"obj"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(true));
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::String(b"\"name\""),
+      ExpressionToken::ArithOp(b"in"),
+      ExpressionToken::Ref(b"obj"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(true));
+}

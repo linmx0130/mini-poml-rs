@@ -16,6 +16,8 @@ This project is still in early development. Use at your own risk! The API may ch
     * Array item and object field access
     * `+` / `-` / `*` / `/` arithmetic operators
     * `!` / `&&` / `||` logical operators
+    * `in` / `>` / `<` / `>=` / `<=` rational operators
+    * `===` / `!==` strict equality operators
 
 ### Features in work
 * Expression evaluation

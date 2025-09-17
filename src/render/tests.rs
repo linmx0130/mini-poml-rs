@@ -149,7 +149,7 @@ fn test_let_tag_with_type() {
               <let name="count" value="3" type="number" />
               <p> Count: {{count}} </p>
               <let name="isVisible" value="0" type="boolean" />
-              <p if="{{ isVisible }}"> Not visible </p>
+              <p if="isVisible"> Not visible </p>
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
@@ -191,9 +191,9 @@ fn test_if_attributes() {
             <poml syntax="markdown">
               <let name="name" value="world" />
               <let name="isFrenchVisible" value="1" />
-              <p if="{{isVisible}}"> Hello, {{name}}! </p>
-              <p if="{{isFrenchVisible}}"> Bonjour, {{name}}! </p>
-              <p if="{{ !isVisible }}"> Something is hidden! </p>
+              <p if="isVisible"> Hello, {{name}}! </p>
+              <p if="isFrenchVisible"> Bonjour, {{name}}! </p>
+              <p if="!isVisible"> Something is hidden! </p>
             </poml>
         "#;
   let context = render_context::RenderContext::from_iter(HashMap::<String, Value>::new());
@@ -216,7 +216,7 @@ fn test_for_attributes() {
             <poml syntax="markdown">
               <p for="name in ['apple', 'banana', 'cherry']"> 
                 Hello, {{name}}! {{ loop.index }}
-                <p if="{{ loop.last }}"> End: {{ name }}</p>
+                <p if="loop.last"> End: {{ name }}</p>
               </p>
             </poml>
         "#;
@@ -239,8 +239,12 @@ fn test_for_attributes() {
 fn test_for_in_obj_array() {
   let doc = r#"
             <poml syntax="markdown">
-              <p for="item in [{name: 'apple', cnt: 1}, {name:'banana', cnt:2}]"> 
-                  {{item.name}}: {{item.cnt}}
+              <p for="item in [
+                {name: 'apple', cnt: 1},
+                {name:'banana', cnt: 2},
+                {name: 'peach', cnt: 0}
+            ]">
+              <span if="item.cnt > 0"> {{item.name}}: {{item.cnt}} </span>
               </p>
             </poml>
         "#;
@@ -253,8 +257,10 @@ fn test_for_in_obj_array() {
   };
 
   let output = renderer.render().unwrap();
+  println!("{}", output);
   assert!(output.contains("apple: 1"));
   assert!(output.contains("banana: 2"));
+  assert!(!output.contains("peach"));
 }
 
 #[test]

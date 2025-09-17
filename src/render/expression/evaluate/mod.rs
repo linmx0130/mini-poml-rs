@@ -412,6 +412,7 @@ fn process_rational_operators<'a>(
       || *part == ExpressionPart::Operator("<=")
       || *part == ExpressionPart::Operator(">")
       || *part == ExpressionPart::Operator(">=")
+      || *part == ExpressionPart::Operator("in")
     {
       contain_rational = true;
       break;
@@ -500,6 +501,25 @@ fn process_rational_operators<'a>(
           });
         };
         let value = handle_greater_than_or_equal_operator(&a, b)?;
+        new_parts.push(ExpressionPart::Value(value));
+        i += 2;
+      }
+      ExpressionPart::Operator("in") => {
+        let Some(ExpressionPart::Value(a)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator `in` appears without a value before it.".to_string(),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(b)) = parts.get(i + 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Operator `in` appears without a value after it.".to_string(),
+            source: None,
+          });
+        };
+        let value = handle_in_operator(&a, b)?;
         new_parts.push(ExpressionPart::Value(value));
         i += 2;
       }
@@ -1089,6 +1109,41 @@ fn handle_greater_than_or_equal_operator(a: &Value, b: &Value) -> Result<Value> 
     message: format!("Failed to perform greater-than-or-equal operator on {a:?} and {b:?}."),
     source: None,
   })
+}
+
+fn handle_in_operator(a: &Value, b: &Value) -> Result<Value> {
+  match b {
+    Value::Array(v) => {
+      if let Some(idx) = cast_as_i64(a) {
+        Ok(Value::Bool(0 <= idx && (idx as usize) < v.len()))
+      } else {
+        Err(Error {
+          kind: ErrorKind::EvaluatorError,
+          message:
+            "Left-hand side of `in` must be an integer index when right-hand side is an array"
+              .to_string(),
+          source: None,
+        })
+      }
+    }
+    Value::Object(v) => {
+      if let Value::String(key) = a {
+        Ok(Value::Bool(v.contains_key(key)))
+      } else {
+        Err(Error {
+          kind: ErrorKind::EvaluatorError,
+          message: "Left-hand side of `in` must be a string key when right-hand side is an object"
+            .to_string(),
+          source: None,
+        })
+      }
+    }
+    _ => Err(Error {
+      kind: ErrorKind::EvaluatorError,
+      message: "Right-hand side of 'in' must be an array or an object".to_string(),
+      source: None,
+    }),
+  }
 }
 
 #[cfg(test)]
