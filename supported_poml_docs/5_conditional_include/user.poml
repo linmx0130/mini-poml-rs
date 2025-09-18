@@ -1,0 +1,3 @@
+<poml>
+  <p>Name: {{user.name}}, Age: {{user.age}}</p>
+</poml>

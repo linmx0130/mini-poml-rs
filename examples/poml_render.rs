@@ -12,10 +12,16 @@ struct Args {
   poml_filename: String,
   /// Optional JSON file to supply the context. Only an object is allowed in the json file.
   context_json_filename: Option<String>,
+  /// Option to set working directory
+  #[arg(long)]
+  work_dir: Option<String>,
 }
 
 fn main() -> io::Result<()> {
   let args = Args::parse();
+  if let Some(work_dir) = &args.work_dir {
+    std::env::set_current_dir(work_dir)?;
+  }
   let poml_file = fs::read_to_string(&args.poml_filename)?;
   let mut renderer = match args.context_json_filename {
     Some(f) => {
