@@ -184,6 +184,7 @@ where
       None => None,
     };
     let mut value_count = 0;
+    let mut value_is_expression = false;
     if children_value.is_some() {
       value_count += 1;
     }
@@ -192,6 +193,7 @@ where
     }
     if attribute_value.is_some() {
       value_count += 1;
+      value_is_expression = true
     }
 
     let value: String = match value_count {
@@ -230,6 +232,13 @@ where
       }
       return Ok("".to_owned());
     };
+
+    if value_is_expression {
+      // For attribute value, directly evaluate it as an expression.
+      let evaluated_value = self.context.evaluate(&value)?;
+      self.context.set_value(name, evaluated_value);
+      return Ok("".to_owned());
+    }
 
     let type_value = match attribute_values.iter().find(|v| v.0 == "type") {
       Some((_, v)) => v,

@@ -88,7 +88,7 @@ fn test_render_markdown() {
 fn test_let_tag() {
   let doc = r#"
             <poml syntax="markdown">
-              <let name="name" value="world" />
+              <let name="name" value="'world'" />
               <p> Hello, {{name}}! </p>
             </poml>
         "#;
@@ -169,7 +169,7 @@ fn test_let_tag_with_type() {
 fn test_let_tag_with_type_with_invalid_value() {
   let doc = r#"
             <poml syntax="markdown">
-              <let name="count" value="three" type="integer" />
+              <let name="count" type="integer">three</let>
               <p> Count: {{count}} </p>
             </poml>
         "#;
@@ -189,7 +189,7 @@ fn test_let_tag_with_type_with_invalid_value() {
 fn test_if_attributes() {
   let doc = r#"
             <poml syntax="markdown">
-              <let name="name" value="world" />
+              <let name="name" value="'world'" />
               <let name="isFrenchVisible" value="1" />
               <p if="isVisible"> Hello, {{name}}! </p>
               <p if="isFrenchVisible"> Bonjour, {{name}}! </p>
@@ -318,9 +318,9 @@ fn test_variable_scope() {
   let doc = r#"
 <poml syntax="markdown">
   Start {{a}}
-  <let name="a" value="a" />
+  <let name="a" value="'a'" />
   <p>
-  <let name="a" value="b" />
+  <let name="a" value="'b'" />
   Mid {{a}}
   </p>
   End {{a}}
