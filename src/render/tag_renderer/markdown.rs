@@ -28,6 +28,7 @@ impl TagRenderer for MarkdownTagRenderer {
       "br" => Ok(self.render_br_tag()),
       "b" => Ok(self.render_bold_tag(children_result)),
       "i" => Ok(self.render_italic_tag(children_result)),
+      "s" | "strike" => Ok(self.render_strikethrough_tag(children_result)),
       "code" => Ok(self.render_code_tag(tag, attribute_values, source_buf)),
       "h" => Ok(self.render_header_tag(children_result)),
       "section" => Ok(self.render_section_tag(children_result)),
@@ -102,6 +103,10 @@ impl MarkdownTagRenderer {
 
   fn render_italic_tag(&self, children_result: Vec<String>) -> String {
     format!("*{}*", children_result.join(""))
+  }
+
+  fn render_strikethrough_tag(&self, children_result: Vec<String>) -> String {
+    format!("~~{}~~", children_result.join(""))
   }
 
   fn render_code_tag(

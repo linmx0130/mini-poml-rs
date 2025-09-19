@@ -520,3 +520,18 @@ fn test_examples() {
   assert!(output.contains("Paris\n"));
   assert!(output.contains("**Hint:** No need to add any explanation"));
 }
+
+#[test]
+fn test_bold_italic_strikethrough() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <p><b>bold</b> <i>italic</i> <s>strikethrough</s></p>
+</poml>
+"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("**bold**"));
+  assert!(output.contains("*italic*"));
+  assert!(output.contains("~~strikethrough~~"));
+}
