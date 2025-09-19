@@ -8,13 +8,19 @@ pub mod error;
 pub mod parser;
 pub mod render;
 
-pub use parser::PomlParser;
+use parser::PomlParser;
 use serde_json::Value;
 
+/**
+ * Data structure that represents a node in POML document.
+ */
 #[derive(Debug, PartialEq)]
 pub enum PomlNode<'a> {
+  /** A tag node. */
   Tag(PomlTagNode<'a>),
+  /** Pure text content */
   Text(&'a str),
+  /** Whitespace content, which could be ignore but plays the role of separators. */
   Whitespace,
 }
 
@@ -24,6 +30,9 @@ impl<'a> PomlNode<'a> {
   }
 }
 
+/**
+ * Data structure to represent a POML Tag Node.
+ */
 #[derive(Debug, PartialEq)]
 pub struct PomlTagNode<'a> {
   pub name: &'a str,
@@ -33,9 +42,15 @@ pub struct PomlTagNode<'a> {
   pub original_end_pos: usize,
 }
 
+/**
+ * Render POML files into Markdown format.
+ */
 pub type MarkdownPomlRenderer<'a> = render::Renderer<'a, render::tag_renderer::MarkdownTagRenderer>;
 
 impl<'a> MarkdownPomlRenderer<'a> {
+  /**
+   * Create a Markdown POML Render instance with the POML document and a context.
+   */
   pub fn create_from_doc_and_context(
     doc: &'a str,
     context: render::render_context::RenderContext,
@@ -47,6 +62,11 @@ impl<'a> MarkdownPomlRenderer<'a> {
       tag_renderer: render::tag_renderer::MarkdownTagRenderer {},
     }
   }
+
+  /**
+   * Create a Markdown POML Render instance with the POML document and
+   * variables to be used for rendering.
+   */
   pub fn create_from_doc_and_variables(
     doc: &'a str,
     variables: impl IntoIterator<Item = (String, Value)>,

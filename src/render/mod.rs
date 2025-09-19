@@ -27,6 +27,9 @@ impl<'a, T> Renderer<'a, T>
 where
   T: tag_renderer::TagRenderer,
 {
+  /**
+   * Render the provided POML source code into the desired format.
+   */
   pub fn render(&mut self) -> Result<String> {
     let node = self.parser.parse_as_node()?;
     self.render_impl(&PomlNode::Tag(node))
