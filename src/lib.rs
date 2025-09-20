@@ -19,15 +19,28 @@ pub enum PomlNode<'a> {
   /** A tag node. */
   Tag(PomlTagNode<'a>),
   /** Pure text content */
-  Text(&'a str),
+  Text(&'a str, PomlNodePosition),
   /** Whitespace content, which could be ignore but plays the role of separators. */
-  Whitespace,
+  Whitespace(PomlNodePosition),
 }
 
 impl<'a> PomlNode<'a> {
   pub fn is_tag(&self) -> bool {
     matches!(self, PomlNode::Tag(_))
   }
+
+  pub fn is_whitespace(&self) -> bool {
+    matches!(self, PomlNode::Whitespace(_))
+  }
+}
+
+/**
+ * Original position of a node in the original document.
+ */
+#[derive(Debug, PartialEq)]
+pub struct PomlNodePosition {
+  pub start: usize,
+  pub end: usize,
 }
 
 /**
@@ -38,8 +51,7 @@ pub struct PomlTagNode<'a> {
   pub name: &'a str,
   pub attributes: Vec<(&'a str, &'a str)>,
   pub children: Vec<PomlNode<'a>>,
-  pub original_start_pos: usize,
-  pub original_end_pos: usize,
+  pub original_pos: PomlNodePosition,
 }
 
 /**

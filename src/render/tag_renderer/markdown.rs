@@ -73,7 +73,7 @@ impl MarkdownTagRenderer {
 
     let mut answer = String::new();
     for i in 0..children_tags.len() {
-      if children_tags[i] != PomlNode::Whitespace {
+      if !children_tags[i].is_whitespace() {
         answer += &children_result[i];
       }
     }
@@ -117,7 +117,7 @@ impl MarkdownTagRenderer {
   ) -> String {
     println!("{tag:?}");
     let tag_code =
-      str::from_utf8(&source_buf[tag.original_start_pos..tag.original_end_pos]).unwrap();
+      str::from_utf8(&source_buf[tag.original_pos.start..tag.original_pos.end]).unwrap();
     let code_start = tag_code.find('>').unwrap() + 1;
     let code_end = tag_code.rfind("</").unwrap();
     let code_content = &tag_code[code_start..code_end];

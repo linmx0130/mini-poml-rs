@@ -118,8 +118,8 @@ where
           self.process_tag_node_without_for(tag_node, attribute_values)
         }
       }
-      PomlNode::Text(text) => self.render_text(text),
-      PomlNode::Whitespace => Ok(" ".to_owned()),
+      PomlNode::Text(text, _) => self.render_text(text),
+      PomlNode::Whitespace(_) => Ok(" ".to_owned()),
     }
   }
 
@@ -270,19 +270,19 @@ where
         }
 
         // If it is an array
-        if let Ok(arr_value) = serde_json::from_str::<serde_json::Value>(&value) {
-          if let Some(arr) = arr_value.as_array() {
-            self.context.set_value(name, Value::Array(arr.clone()));
-            return Ok("".to_owned());
-          }
+        if let Ok(arr_value) = serde_json::from_str::<serde_json::Value>(&value)
+          && let Some(arr) = arr_value.as_array()
+        {
+          self.context.set_value(name, Value::Array(arr.clone()));
+          return Ok("".to_owned());
         }
 
         // If it is an object
-        if let Ok(obj_value) = serde_json::from_str::<serde_json::Value>(&value) {
-          if let Some(obj) = obj_value.as_object() {
-            self.context.set_value(name, Value::Object(obj.clone()));
-            return Ok("".to_owned());
-          }
+        if let Ok(obj_value) = serde_json::from_str::<serde_json::Value>(&value)
+          && let Some(obj) = obj_value.as_object()
+        {
+          self.context.set_value(name, Value::Object(obj.clone()));
+          return Ok("".to_owned());
         }
 
         // Otherwise, treat it as string

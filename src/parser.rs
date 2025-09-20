@@ -5,7 +5,7 @@
  */
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::{PomlNode, PomlTagNode};
+use crate::{PomlNode, PomlNodePosition, PomlTagNode};
 
 #[derive(Debug, PartialEq)]
 pub enum PomlElementKind {
@@ -76,7 +76,13 @@ impl<'a> PomlParser<'a> {
             }
           };
           let text = str::from_utf8(&self.buf[element.start_pos..element.end_pos]).unwrap();
-          let text_node = PomlNode::Text(text);
+          let text_node = PomlNode::Text(
+            text,
+            PomlNodePosition {
+              start: element.start_pos,
+              end: element.end_pos,
+            },
+          );
           last_node.children.push(text_node);
         }
         PomlElementKind::Whitespace => {
@@ -93,7 +99,10 @@ impl<'a> PomlParser<'a> {
               });
             }
           };
-          let whitespace_node = PomlNode::Whitespace;
+          let whitespace_node = PomlNode::Whitespace(PomlNodePosition {
+            start: element.start_pos,
+            end: element.end_pos,
+          });
           last_node.children.push(whitespace_node);
         }
         PomlElementKind::Tag => {
@@ -105,8 +114,10 @@ impl<'a> PomlParser<'a> {
                   name: "poml",
                   attributes: vec![],
                   children: vec![],
-                  original_start_pos: element.start_pos,
-                  original_end_pos: element.end_pos,
+                  original_pos: PomlNodePosition {
+                    start: element.start_pos,
+                    end: element.end_pos,
+                  },
                 });
                 added_poml_root = true;
               } else {
@@ -153,7 +164,7 @@ impl<'a> PomlParser<'a> {
                 source: None,
               });
             }
-            node_to_close.original_end_pos = element.end_pos;
+            node_to_close.original_pos.end = element.end_pos;
             match node_stack.last_mut() {
               Some(l) => {
                 l.children.push(PomlNode::Tag(node_to_close));
@@ -169,8 +180,10 @@ impl<'a> PomlParser<'a> {
                 name: "poml",
                 attributes: vec![],
                 children: vec![],
-                original_start_pos: 0,
-                original_end_pos: self.buf.len(),
+                original_pos: PomlNodePosition {
+                  start: 0,
+                  end: self.buf.len(),
+                },
               });
               added_poml_root = true;
             }
@@ -245,8 +258,10 @@ impl<'a> PomlParser<'a> {
       name: tag_name,
       attributes,
       children: Vec::new(),
-      original_start_pos: element.start_pos,
-      original_end_pos: element.end_pos,
+      original_pos: PomlNodePosition {
+        start: element.start_pos,
+        end: element.end_pos,
+      },
     })
   }
 
@@ -536,7 +551,10 @@ mod tests {
     assert_eq!(p_node.name, "p");
     assert_eq!(
       p_node.children.first().unwrap(),
-      &PomlNode::Text("Hello, {{ name }}!")
+      &PomlNode::Text(
+        "Hello, {{ name }}!",
+        PomlNodePosition { start: 49, end: 67 }
+      )
     )
   }
 
