@@ -18,6 +18,7 @@ This project is still in early development. Use at your own risk! The API may ch
     * `!` / `&&` / `||` logical operators
     * `in` / `>` / `<` / `>=` / `<=` rational operators
     * `===` / `!==` strict equality operators
+    * Ternary operator `a?b:c`. 
 
 ### Features in work
 * Expression evaluation

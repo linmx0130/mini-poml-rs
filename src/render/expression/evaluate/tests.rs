@@ -831,3 +831,75 @@ fn test_in_operator_on_object() {
   .unwrap();
   assert_eq!(result, json!(true));
 }
+
+#[test]
+fn test_ternary_operator() {
+  let Value::Object(variables) = json!({
+      "a": true,
+      "x": 1,
+      "y": 2,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::QuestionMark,
+      ExpressionToken::Ref(b"x"),
+      ExpressionToken::Colon,
+      ExpressionToken::Ref(b"y"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(1));
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"b"),
+      ExpressionToken::QuestionMark,
+      ExpressionToken::Ref(b"x"),
+      ExpressionToken::Colon,
+      ExpressionToken::Ref(b"y"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(2));
+}
+
+#[test]
+fn test_ternary_operator_combine() {
+  let Value::Object(variables) = json!({
+      "a": false,
+      "x": 1,
+      "y": 2,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  // Expression: a?true?x:y:false?x:y
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::QuestionMark,
+      ExpressionToken::Ref(b"true"),
+      ExpressionToken::QuestionMark,
+      ExpressionToken::Ref(b"x"),
+      ExpressionToken::Colon,
+      ExpressionToken::Ref(b"y"),
+      ExpressionToken::Colon,
+      ExpressionToken::Ref(b"false"),
+      ExpressionToken::QuestionMark,
+      ExpressionToken::Ref(b"x"),
+      ExpressionToken::Colon,
+      ExpressionToken::Ref(b"y"),
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(2));
+}

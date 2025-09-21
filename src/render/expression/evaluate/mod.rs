@@ -87,11 +87,12 @@ fn evaluate_expression_value(
         pos = next_pos;
       }
       ExpressionToken::QuestionMark => {
-        return Err(Error {
-          kind: ErrorKind::EvaluatorError,
-          message: "Not implemented to recognize ternary operators".to_string(),
-          source: None,
-        });
+        parts.push(ExpressionPart::Operator("?"));
+        pos += 1;
+      }
+      ExpressionToken::Colon => {
+        parts.push(ExpressionPart::Operator(":"));
+        pos += 1;
       }
       _ => {
         return Err(Error {
@@ -111,6 +112,7 @@ fn evaluate_expression_value(
   parts = process_equality_operators(parts)?;
   parts = process_and_operators(parts)?;
   parts = process_or_operators(parts)?;
+  parts = process_ternary_operators(parts)?;
   if parts.len() > 1 {
     return Err(Error {
       kind: ErrorKind::EvaluatorError,
@@ -229,6 +231,95 @@ fn process_or_operators<'a>(parts: Vec<ExpressionPart<'a>>) -> Result<Vec<Expres
       }
     }
   }
+  Ok(new_parts)
+}
+
+fn process_ternary_operators<'a>(
+  parts: Vec<ExpressionPart<'a>>,
+) -> Result<Vec<ExpressionPart<'a>>> {
+  let mut contain_ternary = false;
+  for part in &parts {
+    if *part == ExpressionPart::Operator("?") {
+      contain_ternary = true;
+      break;
+    }
+  }
+
+  if !contain_ternary {
+    return Ok(parts);
+  }
+
+  let mut new_parts = Vec::new();
+  // evaluate ternary operators from right to left
+  let mut i_rev = 0;
+  while i_rev < parts.len() {
+    let i = parts.len() - i_rev - 1;
+    match parts[i] {
+      ExpressionPart::Operator("?") => {
+        if i == 0 {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Ternary operator ?: appears without the false branch value after it."
+              .to_string(),
+            source: None,
+          });
+        }
+        let Some(ExpressionPart::Value(true_branch_value)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Ternary operator ? appears without a value after it.".to_string(),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Operator(":")) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Ternary operator ? appears without corresponding : operator.".to_string(),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(false_branch_value)) = new_parts.pop() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Ternary operator ?: appears without the false branch value after it."
+              .to_string(),
+            source: None,
+          });
+        };
+        let Some(ExpressionPart::Value(cond_value)) = parts.get(i - 1) else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Ternary operator ? appears without a value before it.".to_string(),
+            source: None,
+          });
+        };
+        if is_false_json_value(&cond_value) {
+          new_parts.push(ExpressionPart::Value(false_branch_value));
+        } else {
+          new_parts.push(ExpressionPart::Value(true_branch_value));
+        }
+        i_rev += 2;
+      }
+      ExpressionPart::Operator(":") => {
+        // ensure that a value (false branch value) has been pushed into the stack.
+        let Some(&ExpressionPart::Value(_)) = new_parts.last() else {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Ternary operator : appears without a value after it.".to_string(),
+            source: None,
+          });
+        };
+        new_parts.push(parts[i].clone());
+        i_rev += 1;
+      }
+      _ => {
+        new_parts.push(parts[i].clone());
+        i_rev += 1;
+      }
+    }
+  }
+  // The new_parts is computed from right to left. Have to reverse it to get back to normal order.
+  new_parts.reverse();
   Ok(new_parts)
 }
 
