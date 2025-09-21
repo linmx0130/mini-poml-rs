@@ -72,6 +72,7 @@ impl<'a> MarkdownPomlRenderer<'a> {
       parser,
       context,
       tag_renderer: render::tag_renderer::MarkdownTagRenderer {},
+      filename: "<anonymous>".to_string(),
     }
   }
 

@@ -21,6 +21,8 @@ where
   pub parser: PomlParser<'a>,
   pub context: render_context::RenderContext,
   pub tag_renderer: T,
+  /** POML filename for error reporting purpose */
+  pub(crate) filename: String,
 }
 
 impl<'a, T> Renderer<'a, T>
@@ -31,8 +33,31 @@ where
    * Render the provided POML source code into the desired format.
    */
   pub fn render(&mut self) -> Result<String> {
-    let node = self.parser.parse_as_node()?;
-    self.render_impl(&PomlNode::Tag(node))
+    let node = match self.parser.parse_as_node() {
+      Ok(n) => n,
+      Err(e) => {
+        return Err(Error {
+          kind: ErrorKind::RendererError,
+          message: format!("Error in render file {}", self.filename),
+          source: Some(Box::new(e)),
+        });
+      }
+    };
+    match self.render_impl(&PomlNode::Tag(node)) {
+      Ok(s) => Ok(s),
+      Err(e) => {
+        return Err(Error {
+          kind: ErrorKind::RendererError,
+          message: format!("Error in render file {}", self.filename),
+          source: Some(Box::new(e)),
+        });
+      }
+    }
+  }
+
+  /** Set POML filename for error reporting purpose */
+  pub fn set_filename(&mut self, filename: &str) {
+    self.filename = filename.to_string();
   }
 
   pub(crate) fn render_impl(&mut self, node: &PomlNode) -> Result<String> {
@@ -403,6 +428,7 @@ where
       context: new_context,
       tag_renderer: new_tag_renderer,
       parser,
+      filename: src.to_string(),
     };
     renderer.render()
   }

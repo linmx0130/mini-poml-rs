@@ -54,6 +54,7 @@ fn test_render_content() {
     parser,
     context,
     tag_renderer: TestTagRenderer {},
+    filename: "<anonymous>".to_owned(),
   };
 
   let output = renderer.render().unwrap();
@@ -75,6 +76,7 @@ fn test_render_markdown() {
     parser,
     context,
     tag_renderer: MarkdownTagRenderer {},
+    filename: "<anonymous>".to_owned(),
   };
 
   let output = renderer.render().unwrap();
@@ -98,6 +100,7 @@ fn test_let_tag() {
     parser,
     context,
     tag_renderer: TestTagRenderer {},
+    filename: "<anonymous>".to_owned(),
   };
 
   let output = renderer.render().unwrap();
@@ -118,6 +121,7 @@ fn test_let_tag_children_value() {
     parser,
     context,
     tag_renderer: TestTagRenderer {},
+    filename: "<anonymous>".to_owned(),
   };
 
   let output = renderer.render().unwrap();
@@ -138,6 +142,7 @@ fn test_let_tag_duplicated_values() {
     parser,
     context,
     tag_renderer: TestTagRenderer {},
+    filename: "<anonymous>".to_owned(),
   };
 
   assert!(renderer.render().is_err());
@@ -158,6 +163,7 @@ fn test_let_tag_with_type() {
     parser,
     context,
     tag_renderer: TestTagRenderer {},
+    filename: "<anonymous>".to_owned(),
   };
 
   let output = renderer.render().unwrap();
@@ -179,6 +185,7 @@ fn test_let_tag_with_type_with_invalid_value() {
     parser,
     context,
     tag_renderer: TestTagRenderer {},
+    filename: "<anonymous>".to_owned(),
   };
 
   let output = renderer.render();
@@ -202,6 +209,7 @@ fn test_if_attributes() {
     parser,
     context,
     tag_renderer: TestTagRenderer {},
+    filename: "<anonymous>".to_owned(),
   };
 
   let output = renderer.render().unwrap();
@@ -226,6 +234,7 @@ fn test_for_attributes() {
     parser,
     context,
     tag_renderer: TestTagRenderer {},
+    filename: "<anonymous>".to_owned(),
   };
 
   let output = renderer.render().unwrap();
@@ -254,6 +263,7 @@ fn test_for_in_obj_array() {
     parser,
     context,
     tag_renderer: TestTagRenderer {},
+    filename: "<anonymous>".to_owned(),
   };
 
   let output = renderer.render().unwrap();
@@ -384,6 +394,29 @@ fn test_include() {
     .insert("a.poml".to_owned(), a_doc.to_owned());
   let output = renderer.render().unwrap();
   assert!(output.contains("# AAA"));
+}
+
+#[test]
+fn test_include_error_reporting() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<poml syntax="markdown">
+  <p>File a</p>
+  <include src="a.poml"/>
+</poml>
+"#;
+  let a_doc = r#"<h>"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
+  renderer.set_filename("main.poml");
+  renderer
+    .context
+    .file_mapping
+    .insert("a.poml".to_owned(), a_doc.to_owned());
+  let output_err = renderer.render().unwrap_err();
+  let error_message = format!("{}", output_err);
+  let error_message_lines: Vec<&str> = error_message.split("\n").collect();
+  assert!(error_message_lines[0].contains("Error in render file main.poml"));
+  assert!(error_message_lines[1].contains("Error in render file a.poml"));
 }
 
 #[test]

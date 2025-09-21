@@ -33,6 +33,7 @@ fn main() -> io::Result<()> {
     }
     None => MarkdownPomlRenderer::create_from_doc_and_variables(&poml_file, HashMap::new()),
   };
+  renderer.set_filename(&args.poml_filename);
 
   let output = renderer.render().unwrap();
   println!("{output}");
