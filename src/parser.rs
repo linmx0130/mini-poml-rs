@@ -12,6 +12,7 @@ pub enum PomlElementKind {
   Tag,
   Text,
   Whitespace,
+  Comment,
 }
 
 #[derive(Debug, PartialEq)]
@@ -189,6 +190,9 @@ impl<'a> PomlParser<'a> {
             }
             node_stack.push(tag);
           }
+        }
+        PomlElementKind::Comment => {
+          continue;
         }
       }
     }
@@ -372,6 +376,30 @@ impl<'a> PomlParser<'a> {
 
   fn next_element(&mut self) -> Result<Option<PomlElement>> {
     if self.pos < self.buf.len() {
+      if self.pos + 4 < self.buf.len() && self.buf[self.pos..self.pos + 4] == *b"<!--" {
+        // Comment element
+        self.pos += 4;
+        let mut end = self.pos;
+        while end + 3 < self.buf.len() {
+          if self.buf[end..end + 3] == *b"-->" {
+            self.pos = end + 3;
+            return Ok(Some(PomlElement {
+              kind: PomlElementKind::Comment,
+              start_pos: self.pos - 4,
+              end_pos: end + 3,
+            }));
+          }
+          end += 1;
+        }
+        return Err(Error {
+          kind: ErrorKind::ParserError,
+          message: format!(
+            "Comment not terminated at position {:?}",
+            self.get_line_and_col_from_pos(self.pos)
+          ),
+          source: None,
+        });
+      }
       let c = char::from(self.buf[self.pos]);
       match c {
         c if c.is_ascii_whitespace() => {

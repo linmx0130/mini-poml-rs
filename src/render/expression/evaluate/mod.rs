@@ -293,7 +293,7 @@ fn process_ternary_operators<'a>(
             source: None,
           });
         };
-        if is_false_json_value(&cond_value) {
+        if is_false_json_value(cond_value) {
           new_parts.push(ExpressionPart::Value(false_branch_value));
         } else {
           new_parts.push(ExpressionPart::Value(true_branch_value));

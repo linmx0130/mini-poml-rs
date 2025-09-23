@@ -45,13 +45,11 @@ where
     };
     match self.render_impl(&PomlNode::Tag(node)) {
       Ok(s) => Ok(s),
-      Err(e) => {
-        return Err(Error {
-          kind: ErrorKind::RendererError,
-          message: format!("Error in render file {}", self.filename),
-          source: Some(Box::new(e)),
-        });
-      }
+      Err(e) => Err(Error {
+        kind: ErrorKind::RendererError,
+        message: format!("Error in render file {}", self.filename),
+        source: Some(Box::new(e)),
+      }),
     }
   }
 
