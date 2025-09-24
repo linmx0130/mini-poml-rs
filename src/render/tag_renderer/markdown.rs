@@ -187,16 +187,34 @@ impl MarkdownTagRenderer {
         source: None,
       });
     };
-    let mut answer = format!("# {caption}\n\n");
+    let caption_style = match attribute_values.iter().find(|v| v.0 == "captionStyle") {
+      Some((_, value)) => value,
+      None => "header",
+    };
 
-    for child_text in children_result.iter() {
-      if child_text.starts_with("#") {
-        answer += &format!("#{child_text}");
-      } else {
-        answer += child_text;
+    match caption_style {
+      "header" => {
+        let mut answer = format!("# {caption}\n\n");
+
+        for child_text in children_result.iter() {
+          if child_text.starts_with("#") {
+            answer += &format!("#{child_text}");
+          } else {
+            answer += child_text;
+          }
+        }
+        Ok(answer)
       }
+      "bold" => Ok(format!("**{caption}**\n\n{}", children_result.join(""))),
+      "plain" => Ok(format!("{caption}\n\n{}", children_result.join(""))),
+      "hidden" => Ok(children_result.join("")),
+
+      _ => Err(Error {
+        kind: ErrorKind::RendererError,
+        message: format!("Caption style \"{caption_style}\" is not valid."),
+        source: None,
+      }),
     }
-    Ok(answer)
   }
 
   fn render_item_tag(&self, children_result: Vec<String>) -> String {

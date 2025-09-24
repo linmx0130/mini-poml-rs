@@ -477,6 +477,24 @@ fn test_captioned_paragraph() {
 }
 
 #[test]
+fn test_captioned_paragraph_with_style() {
+  use crate::MarkdownPomlRenderer;
+  let doc = r#"
+<cp caption="Constraints" captionStyle="bold">
+  <h>Sub-list</h>
+  <list>
+    <item>Do not exceed 1000 tokens.</item>
+    <item>Please use simple words.</item>
+  </list>
+</cp>"#;
+  let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
+  let output = renderer.render().unwrap();
+  assert!(output.contains("**Constraints**\n\n"));
+  assert!(output.contains("# Sub-list\n\n"));
+  assert!(output.contains("\n - Do not exceed 1000 tokens."));
+}
+
+#[test]
 fn test_let_src_include() {
   use crate::MarkdownPomlRenderer;
   let doc = r#"

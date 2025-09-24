@@ -2,7 +2,7 @@
 name = "mini-poml-rs"
 version = "0.0.1"
 edition = "2024"
-description = "A partial implementation of POML"
+description = "A partial implementation of POML in pure Rust with minimal dependencies."
 license = "MPL-2.0"
 readme = "README.md"
 homepage = "https://github.com/linmx0130/mini-poml-rs"
