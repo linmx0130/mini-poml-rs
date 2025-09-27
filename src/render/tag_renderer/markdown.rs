@@ -5,6 +5,7 @@
  */
 
 use super::TagRenderer;
+use super::attribute_utils::{CaptionStyle, get_caption_style};
 use crate::error::{Error, ErrorKind, Result};
 use crate::render::utils;
 use crate::{PomlNode, PomlTagNode};
@@ -33,17 +34,31 @@ impl TagRenderer for MarkdownTagRenderer {
       "h" => Ok(self.render_header_tag(children_result)),
       "section" => Ok(self.render_section_tag(children_result)),
       "cp" => self.render_captioned_paragraph_tag(attribute_values, children_result),
-      "role" => Ok(self.render_intention_block_tag("Role", children_result)),
-      "task" => Ok(self.render_intention_block_tag("Task", children_result)),
-      "output-format" => Ok(self.render_intention_block_tag("Output Format", children_result)),
-      "examples" => Ok(self.render_intention_block_tag("Examples", children_result)),
-      "example" => Ok(self.render_p_tag(children_result)),
-      "input" => Ok(self.render_p_tag(children_result)),
-      "output" => Ok(self.render_p_tag(children_result)),
-      "hint" => Ok(self.render_hint_tag(children_result)),
-      "stepwise-instructions" => {
-        Ok(self.render_intention_block_tag("Stepwise Instructions", children_result))
+      "role" => Ok(self.render_intention_block_tag("Role", attribute_values, children_result)),
+      "task" => Ok(self.render_intention_block_tag("Task", attribute_values, children_result)),
+      "output-format" => {
+        Ok(self.render_intention_block_tag("Output Format", attribute_values, children_result))
       }
+      "examples" => {
+        Ok(self.render_intention_block_tag("Examples", attribute_values, children_result))
+      }
+      "example" => {
+        Ok(self.render_title_default_hidden_block_tag("Example", attribute_values, children_result))
+      }
+      "input" => {
+        Ok(self.render_title_default_hidden_block_tag("Input", attribute_values, children_result))
+      }
+      "output" => {
+        Ok(self.render_title_default_hidden_block_tag("Output", attribute_values, children_result))
+      }
+      "hint" => {
+        Ok(self.render_title_default_bold_block_tag("Hint", attribute_values, children_result))
+      }
+      "stepwise-instructions" => Ok(self.render_intention_block_tag(
+        "Stepwise Instructions",
+        attribute_values,
+        children_result,
+      )),
       "meta" => Ok("".to_owned()),
       "item" => Ok(self.render_item_tag(children_result)),
       "list" => self.render_list_tag(tag, attribute_values, children_result),
@@ -93,14 +108,6 @@ impl MarkdownTagRenderer {
     format!("**{}**", children_result.join(""))
   }
 
-  fn render_hint_tag(&self, children_result: Vec<String>) -> String {
-    format!(
-      "{} {}",
-      self.render_bold_tag(vec!["Hint:".to_owned()]),
-      self.render_p_tag(children_result)
-    )
-  }
-
   fn render_italic_tag(&self, children_result: Vec<String>) -> String {
     format!("*{}*", children_result.join(""))
   }
@@ -147,16 +154,34 @@ impl MarkdownTagRenderer {
     }
   }
 
-  fn render_intention_block_tag(&self, title: &str, children_result: Vec<String>) -> String {
-    let mut answer = format!("# {title}\n\n");
-    for child_text in children_result.iter() {
-      if child_text.starts_with("#") {
-        answer += &format!("#{child_text}");
-      } else {
-        answer += child_text;
-      }
-    }
-    answer
+  fn render_intention_block_tag(
+    &self,
+    title: &str,
+    attribute_values: &[(String, String)],
+    children_result: Vec<String>,
+  ) -> String {
+    let caption_style = get_caption_style(attribute_values, CaptionStyle::Header);
+    self.render_captioned_component(caption_style, title, children_result)
+  }
+
+  fn render_title_default_hidden_block_tag(
+    &self,
+    title: &str,
+    attribute_values: &[(String, String)],
+    children_result: Vec<String>,
+  ) -> String {
+    let caption_style = get_caption_style(attribute_values, CaptionStyle::Hidden);
+    self.render_captioned_component(caption_style, title, children_result)
+  }
+
+  fn render_title_default_bold_block_tag(
+    &self,
+    title: &str,
+    attribute_values: &[(String, String)],
+    children_result: Vec<String>,
+  ) -> String {
+    let caption_style = get_caption_style(attribute_values, CaptionStyle::Bold);
+    self.render_captioned_component(caption_style, title, children_result)
   }
 
   fn render_header_tag(&self, children_result: Vec<String>) -> String {
@@ -187,34 +212,8 @@ impl MarkdownTagRenderer {
         source: None,
       });
     };
-    let caption_style = match attribute_values.iter().find(|v| v.0 == "captionStyle") {
-      Some((_, value)) => value,
-      None => "header",
-    };
-
-    match caption_style {
-      "header" => {
-        let mut answer = format!("# {caption}\n\n");
-
-        for child_text in children_result.iter() {
-          if child_text.starts_with("#") {
-            answer += &format!("#{child_text}");
-          } else {
-            answer += child_text;
-          }
-        }
-        Ok(answer)
-      }
-      "bold" => Ok(format!("**{caption}**\n\n{}", children_result.join(""))),
-      "plain" => Ok(format!("{caption}\n\n{}", children_result.join(""))),
-      "hidden" => Ok(children_result.join("")),
-
-      _ => Err(Error {
-        kind: ErrorKind::RendererError,
-        message: format!("Caption style \"{caption_style}\" is not valid."),
-        source: None,
-      }),
-    }
+    let caption_style = get_caption_style(attribute_values, CaptionStyle::Header);
+    Ok(self.render_captioned_component(caption_style, caption, children_result))
   }
 
   fn render_item_tag(&self, children_result: Vec<String>) -> String {
@@ -286,5 +285,33 @@ impl MarkdownTagRenderer {
       }
     }
     Ok(answer)
+  }
+
+  /**
+   * Reusable utils to render a caption.
+   */
+  fn render_captioned_component(
+    &self,
+    style: CaptionStyle,
+    caption_text: &str,
+    children_result: Vec<String>,
+  ) -> String {
+    match style {
+      CaptionStyle::Header => {
+        let mut answer = format!("# {caption_text}\n\n");
+
+        for child_text in children_result.iter() {
+          if child_text.starts_with("#") {
+            answer += &format!("#{child_text}");
+          } else {
+            answer += child_text;
+          }
+        }
+        answer
+      }
+      CaptionStyle::Bold => format!("**{caption_text}:** {}\n", children_result.join("")),
+      CaptionStyle::Plain => format!("{caption_text}\n\n{}\n", children_result.join("")),
+      CaptionStyle::Hidden => format!("{}\n", children_result.join("")),
+    }
   }
 }

@@ -489,7 +489,7 @@ fn test_captioned_paragraph_with_style() {
 </cp>"#;
   let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   let output = renderer.render().unwrap();
-  assert!(output.contains("**Constraints**\n\n"));
+  assert!(output.contains("**Constraints:**"));
   assert!(output.contains("# Sub-list\n\n"));
   assert!(output.contains("\n - Do not exceed 1000 tokens."));
 }
