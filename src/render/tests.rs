@@ -562,14 +562,14 @@ fn test_examples() {
       <output>Berlin</output>
     </example>
   </examples>
-  <hint>No need to add any explanation</hint>
+  <hint captionColon="false">No need to add any explanation</hint>
 </poml>
 "#;
   let mut renderer = MarkdownPomlRenderer::create_from_doc_and_variables(doc, HashMap::new());
   let output = renderer.render().unwrap();
   assert!(output.contains("# Examples"));
   assert!(output.contains("Paris\n"));
-  assert!(output.contains("**Hint:** No need to add any explanation"));
+  assert!(output.contains("**Hint** No need to add any explanation"));
 }
 
 #[test]

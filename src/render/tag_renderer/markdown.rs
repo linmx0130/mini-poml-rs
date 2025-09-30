@@ -5,7 +5,7 @@
  */
 
 use super::TagRenderer;
-use super::attribute_utils::{CaptionStyle, get_caption_style};
+use super::attribute_utils::{CaptionStyle, get_caption_style_and_colon};
 use crate::error::{Error, ErrorKind, Result};
 use crate::render::utils;
 use crate::{PomlNode, PomlTagNode};
@@ -160,8 +160,9 @@ impl MarkdownTagRenderer {
     attribute_values: &[(String, String)],
     children_result: Vec<String>,
   ) -> String {
-    let caption_style = get_caption_style(attribute_values, CaptionStyle::Header);
-    self.render_captioned_component(caption_style, title, children_result)
+    let (caption_style, caption_colon) =
+      get_caption_style_and_colon(attribute_values, CaptionStyle::Header);
+    self.render_captioned_component(caption_style, caption_colon, title, children_result)
   }
 
   fn render_title_default_hidden_block_tag(
@@ -170,8 +171,9 @@ impl MarkdownTagRenderer {
     attribute_values: &[(String, String)],
     children_result: Vec<String>,
   ) -> String {
-    let caption_style = get_caption_style(attribute_values, CaptionStyle::Hidden);
-    self.render_captioned_component(caption_style, title, children_result)
+    let (caption_style, caption_colon) =
+      get_caption_style_and_colon(attribute_values, CaptionStyle::Hidden);
+    self.render_captioned_component(caption_style, caption_colon, title, children_result)
   }
 
   fn render_title_default_bold_block_tag(
@@ -180,8 +182,9 @@ impl MarkdownTagRenderer {
     attribute_values: &[(String, String)],
     children_result: Vec<String>,
   ) -> String {
-    let caption_style = get_caption_style(attribute_values, CaptionStyle::Bold);
-    self.render_captioned_component(caption_style, title, children_result)
+    let (caption_style, caption_colon) =
+      get_caption_style_and_colon(attribute_values, CaptionStyle::Bold);
+    self.render_captioned_component(caption_style, caption_colon, title, children_result)
   }
 
   fn render_header_tag(&self, children_result: Vec<String>) -> String {
@@ -212,8 +215,9 @@ impl MarkdownTagRenderer {
         source: None,
       });
     };
-    let caption_style = get_caption_style(attribute_values, CaptionStyle::Header);
-    Ok(self.render_captioned_component(caption_style, caption, children_result))
+    let (caption_style, caption_colon) =
+      get_caption_style_and_colon(attribute_values, CaptionStyle::Header);
+    Ok(self.render_captioned_component(caption_style, caption_colon, caption, children_result))
   }
 
   fn render_item_tag(&self, children_result: Vec<String>) -> String {
@@ -293,13 +297,17 @@ impl MarkdownTagRenderer {
   fn render_captioned_component(
     &self,
     style: CaptionStyle,
+    caption_colon: bool,
     caption_text: &str,
     children_result: Vec<String>,
   ) -> String {
     match style {
       CaptionStyle::Header => {
-        let mut answer = format!("# {caption_text}\n\n");
-
+        let mut answer = if caption_colon {
+          format!("# {caption_text}:\n\n")
+        } else {
+          format!("# {caption_text}\n\n")
+        };
         for child_text in children_result.iter() {
           if child_text.starts_with("#") {
             answer += &format!("#{child_text}");
@@ -309,8 +317,20 @@ impl MarkdownTagRenderer {
         }
         answer
       }
-      CaptionStyle::Bold => format!("**{caption_text}:** {}\n", children_result.join("")),
-      CaptionStyle::Plain => format!("{caption_text}\n\n{}\n", children_result.join("")),
+      CaptionStyle::Bold => {
+        if caption_colon {
+          format!("**{caption_text}:** {}\n", children_result.join(""))
+        } else {
+          format!("**{caption_text}** {}\n", children_result.join(""))
+        }
+      }
+      CaptionStyle::Plain => {
+        if caption_colon {
+          format!("{caption_text}:\n\n{}\n", children_result.join(""))
+        } else {
+          format!("{caption_text}\n\n{}\n", children_result.join(""))
+        }
+      }
       CaptionStyle::Hidden => format!("{}\n", children_result.join("")),
     }
   }
