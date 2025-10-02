@@ -27,6 +27,10 @@ pub enum ExpressionToken<'a> {
   LeftCurly,
   // Right curly bracket
   RightCurly,
+  // Double left curly
+  DoubleLeftCurly,
+  // Double right curly,
+  DoubleRightCurly,
   // Comma
   Comma,
   // Colon
@@ -137,12 +141,22 @@ pub fn tokenize_expression<'a>(buf: &'a [u8]) -> Result<Vec<ExpressionToken<'a>>
         pos += 1;
       }
       '{' => {
-        answer.push(ExpressionToken::LeftCurly);
-        pos += 1;
+        if pos + 1 < buf.len() && buf[pos + 1] == b'{' {
+          answer.push(ExpressionToken::DoubleLeftCurly);
+          pos += 2;
+        } else {
+          answer.push(ExpressionToken::LeftCurly);
+          pos += 1;
+        }
       }
       '}' => {
-        answer.push(ExpressionToken::RightCurly);
-        pos += 1;
+        if pos + 1 < buf.len() && buf[pos + 1] == b'}' {
+          answer.push(ExpressionToken::DoubleRightCurly);
+          pos += 2;
+        } else {
+          answer.push(ExpressionToken::RightCurly);
+          pos += 1;
+        }
       }
       ',' => {
         answer.push(ExpressionToken::Comma);

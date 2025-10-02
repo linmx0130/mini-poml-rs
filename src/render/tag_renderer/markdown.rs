@@ -10,6 +10,7 @@ use crate::error::{Error, ErrorKind, Result};
 use crate::render::utils;
 use crate::{PomlNode, PomlTagNode};
 use serde_json::Value;
+use std::collections::HashMap;
 /**
  * The default renderer to render markdown content.
  */
@@ -63,6 +64,7 @@ impl TagRenderer for MarkdownTagRenderer {
       "meta" => Ok("".to_owned()),
       "item" => Ok(self.render_item_tag(children_result)),
       "list" => self.render_list_tag(tag, attribute_values, children_result),
+      "table" => self.render_table_tag(attribute_values),
       _ => Err(Error {
         kind: ErrorKind::RendererError,
         message: format!("Unknown tag: <{}>", tag.name),
@@ -334,5 +336,96 @@ impl MarkdownTagRenderer {
       }
       CaptionStyle::Hidden => format!("{}\n", children_result.join("")),
     }
+  }
+
+  fn render_table_tag(&self, attribute_values: &[(String, Value)]) -> Result<String> {
+    let Some((_, records)) = attribute_values.iter().find(|v| v.0 == "records") else {
+      return Err(Error {
+        kind: ErrorKind::RendererError,
+        message: "Missing `records` attribute for the <table> tag.".to_string(),
+        source: None,
+      });
+    };
+    let Value::Array(records) = records else {
+      return Err(Error {
+        kind: ErrorKind::RendererError,
+        message: "`records` attribute must be an array for the <table> tag.".to_string(),
+        source: None,
+      });
+    };
+
+    if records.is_empty() {
+      return Ok(String::new());
+    }
+
+    let mut result = String::new();
+    let mut headers: Vec<String> = vec![];
+    let mut column_max_width: HashMap<String, usize> = HashMap::new();
+    let mut record_strings: Vec<HashMap<String, String>> = vec![];
+
+    // Extract headers from records
+    for record in records {
+      let Value::Object(obj) = record else {
+        return Err(Error {
+          kind: ErrorKind::RendererError,
+          message: "Table records must be objects.".to_string(),
+          source: None,
+        });
+      };
+      let mut item_strings: HashMap<String, String> = HashMap::new();
+      for (key, value) in obj.iter() {
+        if !headers.iter().any(|v| v == key) {
+          headers.push(key.clone());
+          column_max_width.insert(key.to_string(), key.len());
+        }
+        let value_str = match value {
+          Value::String(s) => s.to_string(),
+          _ => value.to_string(),
+        };
+        if value_str.len() > column_max_width[key] {
+          column_max_width.insert(key.to_string(), value_str.len());
+        }
+        item_strings.insert(key.to_string(), value_str);
+      }
+      record_strings.push(item_strings);
+    }
+
+    // Build header row
+    for key in &headers {
+      result += "| ";
+      let padding = column_max_width[key] - key.len();
+      result += key;
+      for _ in 0..padding {
+        result += " "
+      }
+      result += " "
+    }
+    result += "|\n";
+    // Build header / content separator row
+    for key in &headers {
+      result += "| ";
+      for _ in 0..column_max_width[key] {
+        result += "-"
+      }
+      result += " "
+    }
+    result += "|\n";
+
+    // Build data rows
+    let empty_string = "".to_string();
+    for record in record_strings {
+      for key in &headers {
+        result += "| ";
+        let record_value = record.get(key).unwrap_or(&empty_string);
+        let padding = column_max_width[key] - record_value.len();
+        result += record_value;
+        for _ in 0..padding {
+          result += " "
+        }
+        result += " "
+      }
+      result += "|\n";
+    }
+    Ok(result)
   }
 }

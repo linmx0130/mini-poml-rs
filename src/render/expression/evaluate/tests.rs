@@ -381,6 +381,30 @@ fn test_evaluate_parenthesis() {
 }
 
 #[test]
+fn test_evaluate_double_curly() {
+  let Value::Object(variables) = json!({
+      "a": 1,
+      "b": 2,
+  }) else {
+    panic!();
+  };
+  let context = RenderContext::from(variables);
+  let (result, _) = evaluate_expression_value(
+    &[
+      ExpressionToken::DoubleLeftCurly,
+      ExpressionToken::Ref(b"a"),
+      ExpressionToken::ArithOp(b"+"),
+      ExpressionToken::Ref(b"b"),
+      ExpressionToken::DoubleRightCurly,
+    ],
+    0,
+    &context,
+  )
+  .unwrap();
+  assert_eq!(result, json!(3));
+}
+
+#[test]
 fn test_mix_int_string_plus() {
   let Value::Object(variables) = json!({
       "a": 1,

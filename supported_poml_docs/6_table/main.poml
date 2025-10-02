@@ -1,0 +1,3 @@
+<poml>
+  <table records="{{[{ name: 'Alice', age: 20,isUser: 1 }, { name: 'Bob', age: 30}]}}" syntax="markdown" />
+</poml>

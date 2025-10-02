@@ -76,7 +76,7 @@ where
           if key == &"for" {
             // `for` attribute should be handled in a special way.
             for_loop_attribute = Some(&value_raw[1..value_raw.len() - 1]);
-          } else if tag_node.name == "let" && *key == "value" {
+          } else if is_attribute_evaluated_as_expression(tag_node.name, key) {
             // Special treatment for `value` attribute in `<let>` tag
             // This attribute should be recognized as an expression instead of string.
             let value = self.context.evaluate(&value_raw[1..value_raw.len() - 1])?;
@@ -531,6 +531,12 @@ where
         format!("{value:?}")
       }
     }
+  }
+}
+fn is_attribute_evaluated_as_expression(tag_name: &str, key_name: &str) -> bool {
+  match (tag_name, key_name) {
+    ("let", "value") | ("table", "records") => true,
+    _ => false,
   }
 }
 

@@ -48,13 +48,26 @@ fn evaluate_expression_value(
       ExpressionToken::RightBracket
       | ExpressionToken::RightCurly
       | ExpressionToken::Comma
-      | ExpressionToken::RightParenthesis => break,
+      | ExpressionToken::RightParenthesis
+      | ExpressionToken::DoubleRightCurly => break,
       ExpressionToken::LeftParenthesis => {
         let (value, new_pos) = evaluate_expression_value(tokens, pos + 1, context)?;
         if new_pos >= tokens.len() || tokens[new_pos] != ExpressionToken::RightParenthesis {
           return Err(Error {
             kind: ErrorKind::EvaluatorError,
             message: "Not paired right parenthesis for a left parenthesis".to_string(),
+            source: None,
+          });
+        }
+        pos = new_pos + 1;
+        parts.push(ExpressionPart::Value(value));
+      }
+      ExpressionToken::DoubleLeftCurly => {
+        let (value, new_pos) = evaluate_expression_value(tokens, pos + 1, context)?;
+        if new_pos >= tokens.len() || tokens[new_pos] != ExpressionToken::DoubleRightCurly {
+          return Err(Error {
+            kind: ErrorKind::EvaluatorError,
+            message: "Not paired double right curly for a double left curly".to_string(),
             source: None,
           });
         }
