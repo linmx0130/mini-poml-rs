@@ -9,6 +9,7 @@ use super::attribute_utils::{CaptionStyle, get_caption_style_and_colon};
 use crate::error::{Error, ErrorKind, Result};
 use crate::render::utils;
 use crate::{PomlNode, PomlTagNode};
+use serde_json::Value;
 /**
  * The default renderer to render markdown content.
  */
@@ -19,7 +20,7 @@ impl TagRenderer for MarkdownTagRenderer {
   fn render_tag(
     &self,
     tag: &PomlTagNode,
-    attribute_values: &[(String, String)],
+    attribute_values: &[(String, Value)],
     children_result: Vec<String>,
     source_buf: &[u8],
   ) -> Result<String> {
@@ -119,10 +120,9 @@ impl MarkdownTagRenderer {
   fn render_code_tag(
     &self,
     tag: &PomlTagNode,
-    attribute_values: &[(String, String)],
+    attribute_values: &[(String, Value)],
     source_buf: &[u8],
   ) -> String {
-    println!("{tag:?}");
     let tag_code =
       str::from_utf8(&source_buf[tag.original_pos.start..tag.original_pos.end]).unwrap();
     let code_start = tag_code.find('>').unwrap() + 1;
@@ -133,12 +133,12 @@ impl MarkdownTagRenderer {
     for (attr_key, attr_value) in attribute_values.iter() {
       match attr_key.as_str() {
         "inline" => {
-          if !utils::is_false_value(attr_value) {
+          if !utils::is_false_value(attr_value.as_str().unwrap()) {
             inline = true;
           }
         }
         "lang" => {
-          lang = Some(attr_value);
+          lang = Some(attr_value.as_str().unwrap());
         }
         _ => {}
       }
@@ -157,7 +157,7 @@ impl MarkdownTagRenderer {
   fn render_intention_block_tag(
     &self,
     title: &str,
-    attribute_values: &[(String, String)],
+    attribute_values: &[(String, Value)],
     children_result: Vec<String>,
   ) -> String {
     let (caption_style, caption_colon) =
@@ -168,7 +168,7 @@ impl MarkdownTagRenderer {
   fn render_title_default_hidden_block_tag(
     &self,
     title: &str,
-    attribute_values: &[(String, String)],
+    attribute_values: &[(String, Value)],
     children_result: Vec<String>,
   ) -> String {
     let (caption_style, caption_colon) =
@@ -179,7 +179,7 @@ impl MarkdownTagRenderer {
   fn render_title_default_bold_block_tag(
     &self,
     title: &str,
-    attribute_values: &[(String, String)],
+    attribute_values: &[(String, Value)],
     children_result: Vec<String>,
   ) -> String {
     let (caption_style, caption_colon) =
@@ -205,10 +205,11 @@ impl MarkdownTagRenderer {
 
   fn render_captioned_paragraph_tag(
     &self,
-    attribute_values: &[(String, String)],
+    attribute_values: &[(String, Value)],
     children_result: Vec<String>,
   ) -> Result<String> {
-    let Some((_, caption)) = attribute_values.iter().find(|v| v.0 == "caption") else {
+    let Some((_, Value::String(caption))) = attribute_values.iter().find(|v| v.0 == "caption")
+    else {
       return Err(Error {
         kind: ErrorKind::RendererError,
         message: "Missing `caption` attribute for the <cp> tag.".to_string(),
@@ -235,7 +236,7 @@ impl MarkdownTagRenderer {
   fn render_list_tag(
     &self,
     tag: &PomlTagNode,
-    attribute_values: &[(String, String)],
+    attribute_values: &[(String, Value)],
     children_result: Vec<String>,
   ) -> Result<String> {
     let children_tags = &tag.children;
@@ -247,8 +248,8 @@ impl MarkdownTagRenderer {
       });
     }
     let list_style = match attribute_values.iter().find(|v| v.0 == "listStyle") {
-      Some((_, v)) => v,
-      None => "dash",
+      Some((_, Value::String(v))) => v,
+      _ => "dash",
     };
     let mut answer = String::new();
     let mut item_counter = 0;

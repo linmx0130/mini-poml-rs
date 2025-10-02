@@ -6,12 +6,13 @@
 
 use crate::PomlTagNode;
 use crate::error::Result;
+use serde_json::Value;
 
 pub trait TagRenderer: Clone {
   fn render_tag(
     &self,
     tag: &PomlTagNode,
-    attribute_values: &[(String, String)],
+    attribute_values: &[(String, Value)],
     children_result: Vec<String>,
     source_buf: &[u8],
   ) -> Result<String>;

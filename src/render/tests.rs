@@ -21,7 +21,7 @@ impl TagRenderer for TestTagRenderer {
   fn render_tag(
     &self,
     tag: &PomlTagNode,
-    attribute_values: &[(String, String)],
+    attribute_values: &[(String, Value)],
     children_result: Vec<String>,
     _source_buf: &[u8],
   ) -> Result<String> {

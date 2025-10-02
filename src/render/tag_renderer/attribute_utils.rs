@@ -3,6 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+use serde_json::Value;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum CaptionStyle {
@@ -17,7 +18,7 @@ pub enum CaptionStyle {
  * If the caption style value is not provided or invalid, the default one will be used.
  */
 pub fn get_caption_style_and_colon(
-  attribute_values: &[(String, String)],
+  attribute_values: &[(String, Value)],
   default_style: CaptionStyle,
 ) -> (CaptionStyle, bool) {
   let style = get_caption_style(attribute_values, default_style);
@@ -29,11 +30,11 @@ pub fn get_caption_style_and_colon(
  * Get caption style value from the attributes. If the value is not provided
  * or invalid, the default one will be used.
  */
-fn get_caption_style(attribute_values: &[(String, String)], default: CaptionStyle) -> CaptionStyle {
+fn get_caption_style(attribute_values: &[(String, Value)], default: CaptionStyle) -> CaptionStyle {
   let caption_style_str = attribute_values
     .iter()
     .find(|v| v.0 == "captionStyle")
-    .map(|(_, value)| value.as_str());
+    .map(|(_, value)| value.as_str().unwrap());
 
   match caption_style_str {
     Some("hidden") => CaptionStyle::Hidden,
@@ -51,16 +52,16 @@ fn get_caption_style(attribute_values: &[(String, String)], default: CaptionStyl
  * other caption styles.
  */
 fn get_caption_colon_value(
-  attribute_values: &[(String, String)],
+  attribute_values: &[(String, Value)],
   caption_style: CaptionStyle,
 ) -> bool {
   use crate::render::utils::is_false_value;
   let caption_colon_str = attribute_values
     .iter()
     .find(|v| v.0 == "captionColon")
-    .map(|(_, value)| value.as_str());
+    .map(|(_, value)| value);
   match caption_colon_str {
-    Some(v) => !is_false_value(v),
-    None => matches!(caption_style, CaptionStyle::Plain | CaptionStyle::Bold),
+    Some(Value::String(v)) => !is_false_value(v),
+    _ => matches!(caption_style, CaptionStyle::Plain | CaptionStyle::Bold),
   }
 }

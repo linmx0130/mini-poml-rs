@@ -61,22 +61,30 @@ where
   pub(crate) fn render_impl(&mut self, node: &PomlNode) -> Result<String> {
     match node {
       PomlNode::Tag(tag_node) => {
-        let mut attribute_values: Vec<(String, String)> = Vec::new();
+        let mut attribute_values: Vec<(String, Value)> = Vec::new();
         let mut for_loop_attribute: Option<&str> = None;
         let mut if_attribute_present = false;
         let mut if_attribute_evaluated_as_false = false;
         for (key, value_raw) in tag_node.attributes.iter() {
           if key == &"if" {
             if_attribute_present = true;
+            // `if` attribute should be recognized as an expression.
             let if_attribute_value = self.context.evaluate(&value_raw[1..value_raw.len() - 1])?;
             if_attribute_evaluated_as_false =
               expression::utils::is_false_json_value(&if_attribute_value);
           }
           if key == &"for" {
+            // `for` attribute should be handled in a special way.
             for_loop_attribute = Some(&value_raw[1..value_raw.len() - 1]);
-          } else {
-            let value = self.render_text(&value_raw[1..value_raw.len() - 1])?;
+          } else if tag_node.name == "let" && *key == "value" {
+            // Special treatment for `value` attribute in `<let>` tag
+            // This attribute should be recognized as an expression instead of string.
+            let value = self.context.evaluate(&value_raw[1..value_raw.len() - 1])?;
             attribute_values.push((key.to_string(), value));
+          } else {
+            // By default, the attribute should be recognize as text
+            let value = self.render_text(&value_raw[1..value_raw.len() - 1])?;
+            attribute_values.push((key.to_string(), Value::String(value)));
           }
         }
         if if_attribute_present && for_loop_attribute.is_some() {
@@ -152,7 +160,7 @@ where
   fn process_tag_node_without_for(
     &mut self,
     tag_node: &PomlTagNode,
-    attribute_values: Vec<(String, String)>,
+    attribute_values: Vec<(String, Value)>,
   ) -> Result<String> {
     let mut children_result = Vec::new();
     if !tag_node.children.is_empty() {
@@ -179,7 +187,7 @@ where
 
   fn process_let_node(
     &mut self,
-    attribute_values: Vec<(String, String)>,
+    attribute_values: Vec<(String, Value)>,
     children_result: Vec<String>,
   ) -> Result<String> {
     let name = attribute_values
@@ -197,17 +205,17 @@ where
     let attribute_value = attribute_values
       .iter()
       .find(|v| v.0 == "value")
-      .map(|(_, value)| value.to_string());
+      .map(|(_, value)| value);
 
     let src_value = match attribute_values.iter().find(|v| v.0 == "src") {
-      Some((_, src)) => {
+      Some((_, Value::String(src))) => {
         let file_content_buf = self.context.read_file_content(src)?;
         Some(file_content_buf)
       }
-      None => None,
+      _ => None,
     };
     let mut value_count = 0;
-    let mut value_is_expression = false;
+    let mut value_from_attribute = false;
     if children_value.is_some() {
       value_count += 1;
     }
@@ -216,10 +224,10 @@ where
     }
     if attribute_value.is_some() {
       value_count += 1;
-      value_is_expression = true
+      value_from_attribute = true
     }
 
-    let value: String = match value_count {
+    let value: Value = match value_count {
       0 => {
         return Err(Error {
           kind: ErrorKind::RendererError,
@@ -228,9 +236,9 @@ where
         });
       }
       1 => match (children_value, src_value, attribute_value) {
-        (Some(v), None, None) => v,
-        (None, Some(v), None) => v,
-        (None, None, Some(v)) => v,
+        (Some(v), None, None) => Value::String(v),
+        (None, Some(v), None) => Value::String(v),
+        (None, None, Some(v)) => v.clone(),
         _ => unreachable!(),
       },
       _ => {
@@ -242,8 +250,8 @@ where
       }
     };
 
-    let Some(name) = name else {
-      let Ok(Value::Object(value_obj)) = serde_json::from_str(&value) else {
+    let Some(Value::String(name)) = name else {
+      let Ok(Value::Object(value_obj)) = serde_json::from_str(value.as_str().unwrap()) else {
         return Err(Error {
           kind: ErrorKind::RendererError,
           message: "Only object value can be used to set context variables".to_string(),
@@ -256,26 +264,26 @@ where
       return Ok("".to_owned());
     };
 
-    if value_is_expression {
-      // For attribute value, directly evaluate it as an expression.
-      let evaluated_value = self.context.evaluate(&value)?;
-      self.context.set_value(name, evaluated_value);
+    if value_from_attribute {
+      // For attribute value, directly use the value as it is evaluated.
+      self.context.set_value(name, value);
       return Ok("".to_owned());
     }
 
     let type_value = match attribute_values.iter().find(|v| v.0 == "type") {
-      Some((_, v)) => v,
-      None => {
+      Some((_, Value::String(v))) => v,
+      _ => {
         // Guess the value type based on the value
+        let value_str = value.as_str().unwrap();
 
         // If it is a boolean value
-        if let Ok(bool_value) = value.parse::<bool>() {
+        if let Ok(bool_value) = value_str.parse::<bool>() {
           self.context.set_value(name, Value::Bool(bool_value));
           return Ok("".to_owned());
         }
 
         // If it is an integer
-        if let Ok(int_value) = value.parse::<i64>() {
+        if let Ok(int_value) = value_str.parse::<i64>() {
           self.context.set_value(
             name,
             Value::Number(serde_json::Number::from_i128(int_value.into()).unwrap()),
@@ -284,7 +292,7 @@ where
         }
 
         // If it is a float
-        if let Ok(float_value) = value.parse::<f64>() {
+        if let Ok(float_value) = value_str.parse::<f64>() {
           self.context.set_value(
             name,
             Value::Number(serde_json::Number::from_f64(float_value).unwrap()),
@@ -293,7 +301,7 @@ where
         }
 
         // If it is an array
-        if let Ok(arr_value) = serde_json::from_str::<serde_json::Value>(&value)
+        if let Ok(arr_value) = serde_json::from_str::<serde_json::Value>(value_str)
           && let Some(arr) = arr_value.as_array()
         {
           self.context.set_value(name, Value::Array(arr.clone()));
@@ -301,7 +309,7 @@ where
         }
 
         // If it is an object
-        if let Ok(obj_value) = serde_json::from_str::<serde_json::Value>(&value)
+        if let Ok(obj_value) = serde_json::from_str::<serde_json::Value>(value_str)
           && let Some(obj) = obj_value.as_object()
         {
           self.context.set_value(name, Value::Object(obj.clone()));
@@ -313,9 +321,11 @@ where
       }
     };
 
+    let value_str = value.as_str().unwrap();
+
     match type_value {
       "integer" => {
-        let int_val: i64 = match str::parse(&value) {
+        let int_val: i64 = match str::parse(value_str) {
           Ok(v) => v,
           Err(e) => {
             return Err(Error {
@@ -331,8 +341,8 @@ where
         );
       }
       "number" => {
-        if value.contains('.') {
-          let fval: f64 = match str::parse(&value) {
+        if value_str.contains('.') {
+          let fval: f64 = match str::parse(value_str) {
             Ok(v) => v,
             Err(e) => {
               return Err(Error {
@@ -347,7 +357,7 @@ where
             Value::Number(serde_json::Number::from_f64(fval).unwrap()),
           );
         } else {
-          let int_val: i64 = match str::parse(&value) {
+          let int_val: i64 = match str::parse(value_str) {
             Ok(v) => v,
             Err(e) => {
               return Err(Error {
@@ -364,11 +374,11 @@ where
         }
       }
       "boolean" => {
-        let bool_val = !utils::is_false_value(&value);
+        let bool_val = !utils::is_false_value(value_str);
         self.context.set_value(name, Value::Bool(bool_val));
       }
       "array" => {
-        match serde_json::from_str(&value) {
+        match serde_json::from_str(value_str) {
           Ok(Value::Array(value_arr)) => {
             self.context.set_value(name, Value::Array(value_arr));
           }
@@ -382,7 +392,7 @@ where
         };
       }
       "object" => {
-        match serde_json::from_str(&value) {
+        match serde_json::from_str(value_str) {
           Ok(Value::Object(value_obj)) => {
             self.context.set_value(name, Value::Object(value_obj));
           }
@@ -396,7 +406,7 @@ where
         };
       }
       "string" => {
-        self.context.set_value(name, Value::String(value));
+        self.context.set_value(name, value);
       }
       _ => {
         return Err(Error {
@@ -409,8 +419,8 @@ where
     Ok("".to_owned())
   }
 
-  fn process_include_node(&mut self, attribute_values: Vec<(String, String)>) -> Result<String> {
-    let Some((_, src)) = attribute_values.iter().find(|v| v.0 == "src") else {
+  fn process_include_node(&mut self, attribute_values: Vec<(String, Value)>) -> Result<String> {
+    let Some((_, Value::String(src))) = attribute_values.iter().find(|v| v.0 == "src") else {
       return Err(Error {
         kind: ErrorKind::RendererError,
         message: "`src` attribute not found on <include>.".to_string(),
